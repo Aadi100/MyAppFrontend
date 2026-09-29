@@ -38,10 +38,13 @@ export const useStore = create((set, get) => ({
   appSettings: null,
   dashboardSummary: null,
   monthlyBudgets: [],
+  peopleSummary: [],
   
   fetchData: async () => {
     try {
       const data = await apiFetch('/get-init-data');
+      const peopleSummaryData = await apiFetch('/get-people-summary').catch(() => []);
+      
       set({ 
         expenses: data.transactions || [], 
         savingsWithdrawals: data.savings_withdrawals || [],
@@ -50,7 +53,8 @@ export const useStore = create((set, get) => ({
         banks: data.bank_accounts || [],
         masterCategories: data.master_categories || [],
         subCategories: data.sub_categories || [],
-        appSettings: data.app_settings || null
+        appSettings: data.app_settings || null,
+        peopleSummary: peopleSummaryData || []
       });
     } catch (e) {
       console.error('Failed to fetch initial data:', e);

@@ -1,23 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, LayoutAnimation } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
 
 export default function UdharScreen() {
-  const [activeTab, setActiveTab] = useState('lent');
-  const debts = useStore((state) => state.debts);
+  const peopleSummary = useStore((state) => state.peopleSummary) || [];
   const banks = useStore((state) => state.banks);
   const people = useStore((state) => state.people);
   const subCategories = useStore((state) => state.subCategories);
+  const masterCategories = useStore((state) => state.masterCategories);
   
   const addDebt = useStore((state) => state.addDebt);
   const payDebt = useStore((state) => state.payDebt);
   const addPerson = useStore((state) => state.addPerson);
-  
-  const displayedDebts = debts.filter(d => d.type === activeTab);
 
+  const [expandedPersonId, setExpandedPersonId] = useState(null);
+  
+  // Create / Pay Modals
   const [modalVisible, setModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('lent');
   const [form, setForm] = useState({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
   
   const [personModalVisible, setPersonModalVisible] = useState(false);
@@ -27,36 +29,36 @@ export default function UdharScreen() {
   const [payForm, setPayForm] = useState({ debt_id: '', amount: '', bank_account_id: '' });
   const [selectedDebt, setSelectedDebt] = useState(null);
 
-  const masterCategories = useStore((state) => state.masterCategories);
   const savingsGoals = subCategories.filter(sub => {
     const master = masterCategories.find(mc => mc.id === sub.master_category_id);
     return master && master.type === 'savings';
   });
 
+  const togglePerson = (id) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedPersonId(expandedPersonId === id ? null : id);
+  };
+
   const handleSave = () => {
     if (!form.person_id || !form.amount) return;
     if (form.source_type === 'savings' && !form.savings_sub_category_id) return;
 
+    const payload = {
+      person_id: form.person_id,
+      amount: parseFloat(form.amount),
+      type: activeTab,
+      source_type: form.source_type,
+      date: new Date().toISOString()
+    };
+
     if (form.source_type === 'savings') {
-      addDebt({
-        person_id: form.person_id,
-        amount: parseFloat(form.amount),
-        type: activeTab,
-        source_type: 'savings',
-        savings_sub_category_id: form.savings_sub_category_id,
-        date: new Date().toISOString()
-      });
+      payload.savings_sub_category_id = form.savings_sub_category_id;
     } else {
-      addDebt({
-        person_id: form.person_id,
-        bank_account_id: form.bank_account_id || null,
-        sub_category_id: form.sub_category_id || null,
-        amount: parseFloat(form.amount),
-        type: activeTab,
-        source_type: 'bank',
-        date: new Date().toISOString()
-      });
+      payload.bank_account_id = form.bank_account_id || null;
+      payload.sub_category_id = form.sub_category_id || null;
     }
+
+    addDebt(payload);
     setForm({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
     setModalVisible(false);
   };
@@ -85,230 +87,244 @@ export default function UdharScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Money Tracker</Text>
-
-      <View style={styles.tabsContainer}>
-        <View style={styles.tabs}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'lent' && styles.activeTab]}
-            onPress={() => setActiveTab('lent')}
-          >
-            <Text style={activeTab === 'lent' ? styles.activeTabText : styles.inactiveTabText}>Money Lent</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'borrowed' && styles.activeTab]}
-            onPress={() => setActiveTab('borrowed')}
-          >
-            <Text style={activeTab === 'borrowed' ? styles.activeTabText : styles.inactiveTabText}>Money Borrowed</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Text style={styles.header}>Ledger</Text>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {displayedDebts.length === 0 && (
+        {peopleSummary.length === 0 && (
           <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color="#2A2A3D" />
-            <Text style={styles.emptyStateText}>No records found.</Text>
+            <Ionicons name="people-outline" size={48} color="#2A2A3D" />
+            <Text style={styles.emptyStateText}>No ledger records found.</Text>
           </View>
         )}
         
-        {displayedDebts.map(debt => (
-          <TouchableOpacity 
-            key={debt.id} 
-            style={styles.card}
-            onPress={() => {
-              if (debt.status !== 'paid') {
-                setSelectedDebt(debt);
-                setPayForm({ debt_id: debt.id, amount: '', bank_account_id: (debt.source_type !== 'savings' && banks.length > 0) ? banks[0].id : '' });
-                setPayModalVisible(true);
-              }
-            }}
-          >
-            <View style={styles.cardLeft}>
-              <View style={[styles.iconWrapper, { backgroundColor: activeTab === 'lent' ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)' }]}>
-                <Ionicons name={activeTab === 'lent' ? "arrow-up" : "arrow-down"} size={20} color={activeTab === 'lent' ? "#4ADE80" : "#F87171"} />
-              </View>
-              <View>
-                <Text style={styles.name}>{people.find(p => p.id === debt.person_id)?.name || 'Unknown Person'}</Text>
-                <Text style={styles.date}>{new Date(debt.date || debt.created_at || Date.now()).toLocaleDateString()}</Text>
-                <Text style={{color: '#8A8A9E', fontSize: 12, marginTop: 2}}>
-                  {debt.source_type === 'savings' 
-                    ? `Savings: ${subCategories.find(s => s.id === debt.savings_sub_category_id)?.name || 'Unknown'}`
-                    : `Bank: ${banks.find(b => b.id === debt.bank_account_id)?.name || 'Unknown'}`
-                  }
-                </Text>
-              </View>
+        {peopleSummary.map(person => {
+          const isExpanded = expandedPersonId === person.person_id;
+          const netColor = person.net > 0 ? '#4ADE80' : (person.net < 0 ? '#F87171' : '#8A8A9E');
+          
+          return (
+            <View key={person.person_id} style={styles.personCard}>
+              <TouchableOpacity style={styles.personHeader} onPress={() => togglePerson(person.person_id)}>
+                <View style={styles.personInfo}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{person.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.name}>{person.name}</Text>
+                    {person.net > 0 ? (
+                      <Text style={[styles.netText, { color: netColor }]}>Owes you Rs {person.net.toLocaleString()}</Text>
+                    ) : person.net < 0 ? (
+                      <Text style={[styles.netText, { color: netColor }]}>You owe Rs {Math.abs(person.net).toLocaleString()}</Text>
+                    ) : (
+                      <Text style={[styles.netText, { color: netColor }]}>Settled up</Text>
+                    )}
+                  </View>
+                </View>
+                <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="#8A8A9E" />
+              </TouchableOpacity>
+
+              {isExpanded && (
+                <View style={styles.debtsContainer}>
+                  {person.debts.length === 0 && (
+                    <Text style={{color: '#8A8A9E', fontSize: 12, textAlign: 'center', marginVertical: 8}}>No active records.</Text>
+                  )}
+                  {person.debts.map(debt => (
+                    <TouchableOpacity 
+                      key={debt.id} 
+                      style={styles.debtItem}
+                      onPress={() => {
+                        if (debt.status !== 'paid') {
+                          setSelectedDebt(debt);
+                          setPayForm({ debt_id: debt.id, amount: '', bank_account_id: (debt.source_type !== 'savings' && banks.length > 0) ? banks[0].id : '' });
+                          setPayModalVisible(true);
+                        }
+                      }}
+                    >
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <Ionicons 
+                          name={debt.type === 'lent' ? "arrow-up" : "arrow-down"} 
+                          size={16} 
+                          color={debt.type === 'lent' ? "#4ADE80" : "#F87171"} 
+                          style={{marginRight: 8}}
+                        />
+                        <View>
+                          <Text style={{color: '#fff', fontSize: 14}}>{debt.type === 'lent' ? 'Lent' : 'Borrowed'}</Text>
+                          <Text style={{color: '#8A8A9E', fontSize: 11}}>
+                            {new Date(debt.date || Date.now()).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.amount, { color: debt.type === 'lent' ? '#4ADE80' : '#F87171' }]}>
+                          Rs {debt.remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text style={[styles.statusText, { color: debt.status === 'paid' ? '#4ADE80' : '#FBBF24', fontSize: 10, marginTop: 2 }]}>
+                          {debt.status}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.amount, { color: activeTab === 'lent' ? '#4ADE80' : '#F87171' }]}>
-                Rs {debt.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-              <View style={[styles.statusBadge, { backgroundColor: debt.status === 'paid' ? 'rgba(74, 222, 128, 0.2)' : 'rgba(251, 191, 36, 0.2)' }]}>
-                <Text style={[styles.statusText, { color: debt.status === 'paid' ? '#4ADE80' : '#FBBF24' }]}>{debt.status}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+          );
+        })}
+        <View style={{height: 100}} />
       </ScrollView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Ionicons name="add" size={32} color="#fff" />
-      </TouchableOpacity>
+      <View style={styles.fabContainer}>
+        <TouchableOpacity style={styles.fabLent} onPress={() => { setActiveTab('lent'); setModalVisible(true); }}>
+          <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.fabGradient}>
+            <Ionicons name="arrow-up" size={24} color="#12121D" />
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.fabBorrowed} onPress={() => { setActiveTab('borrowed'); setModalVisible(true); }}>
+          <LinearGradient colors={['#F87171', '#DC2626']} style={styles.fabGradient}>
+            <Ionicons name="arrow-down" size={24} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
 
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContainer}>
-          <ScrollView contentContainerStyle={{flexGrow: 1, justifyContent: 'flex-end'}}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add {activeTab === 'lent' ? 'Lent' : 'Borrowed'} Record</Text>
-              
-              <Text style={styles.label}>Select Person:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
+      {/* CREATE RECORD MODAL */}
+      <Modal visible={modalVisible} transparent={true} animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{activeTab === 'lent' ? 'Record Lent Money' : 'Record Borrowed Money'}</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.label}>Amount</Text>
+              <TextInput style={styles.input} placeholder="0.00" placeholderTextColor="#8A8A9E" keyboardType="numeric" value={form.amount} onChangeText={(val) => setForm({...form, amount: val})} />
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Select Person</Text>
+                <TouchableOpacity onPress={() => setPersonModalVisible(true)}>
+                  <Text style={{color: '#4ADE80', fontSize: 14, fontWeight: 'bold'}}>+ Add New</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pillsContainer}>
                 {people.map(p => (
                   <TouchableOpacity key={p.id} style={[styles.pill, form.person_id === p.id && styles.activePill]} onPress={() => setForm({...form, person_id: p.id})}>
                     <Text style={[styles.pillText, form.person_id === p.id && styles.activePillText]}>{p.name}</Text>
                   </TouchableOpacity>
                 ))}
-                <TouchableOpacity style={[styles.pill, {backgroundColor: '#2A2A3D'}]} onPress={() => setPersonModalVisible(true)}>
-                  <Text style={styles.pillText}>+ Add New</Text>
-                </TouchableOpacity>
-              </ScrollView>
+              </View>
 
-              <Text style={styles.label}>Amount:</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                placeholderTextColor="#8A8A9E"
-                keyboardType="decimal-pad"
-                value={form.amount}
-                onChangeText={(val) => setForm({ ...form, amount: val })}
-              />
-
-              <Text style={styles.label}>Source Type:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
-                <TouchableOpacity style={[styles.pill, form.source_type === 'bank' && styles.activePill]} onPress={() => setForm({...form, source_type: 'bank'})}>
+              <Text style={styles.label}>Source</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                <TouchableOpacity style={[styles.pill, form.source_type === 'bank' && styles.activePill, { flex: 1 }]} onPress={() => setForm({...form, source_type: 'bank'})}>
                   <Text style={[styles.pillText, form.source_type === 'bank' && styles.activePillText]}>Bank Account</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.pill, form.source_type === 'savings' && styles.activePill]} onPress={() => setForm({...form, source_type: 'savings'})}>
+                <TouchableOpacity style={[styles.pill, form.source_type === 'savings' && styles.activePill, { flex: 1 }]} onPress={() => setForm({...form, source_type: 'savings'})}>
                   <Text style={[styles.pillText, form.source_type === 'savings' && styles.activePillText]}>Savings Goal</Text>
                 </TouchableOpacity>
-              </ScrollView>
+              </View>
 
-              {form.source_type === 'bank' ? (
+              {form.source_type === 'bank' && (
                 <>
-                  <Text style={styles.label}>Bank Account (Optional):</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
+                  <Text style={styles.label}>Bank Account (Optional)</Text>
+                  <View style={styles.pillsContainer}>
                     {banks.map(b => (
                       <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: form.bank_account_id === b.id ? '' : b.id})}>
                         <Text style={[styles.pillText, form.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
+                  </View>
 
-                  <Text style={styles.label}>Category (Optional):</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
-                    {subCategories.map(c => (
-                      <TouchableOpacity key={c.id} style={[styles.pill, form.sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: form.sub_category_id === c.id ? '' : c.id})}>
-                        <Text style={[styles.pillText, form.sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
+                  <Text style={styles.label}>Sub Category (Optional)</Text>
+                  <View style={styles.pillsContainer}>
+                    {subCategories.filter(sc => !masterCategories.find(mc => mc.id === sc.master_category_id)?.type).map(sc => (
+                      <TouchableOpacity key={sc.id} style={[styles.pill, form.sub_category_id === sc.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: form.sub_category_id === sc.id ? '' : sc.id})}>
+                        <Text style={[styles.pillText, form.sub_category_id === sc.id && styles.activePillText]}>{sc.name}</Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.label}>Savings Goal:</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
-                    {savingsGoals.map(c => (
-                      <TouchableOpacity key={c.id} style={[styles.pill, form.savings_sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, savings_sub_category_id: c.id})}>
-                        <Text style={[styles.pillText, form.savings_sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  </View>
                 </>
               )}
-              
-              <View style={styles.buttonRow}>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                  <Text style={styles.buttonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {/* Add Person Modal */}
-      <Modal visible={personModalVisible} animationType="fade" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Person</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Name (e.g. Ali Khan)"
-              placeholderTextColor="#8A8A9E"
-              value={personForm.name}
-              onChangeText={(val) => setPersonForm({ ...personForm, name: val })}
-              autoFocus
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Phone (Optional)"
-              placeholderTextColor="#8A8A9E"
-              value={personForm.phone}
-              onChangeText={(val) => setPersonForm({ ...personForm, phone: val })}
-            />
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setPersonModalVisible(false)}><Text style={styles.buttonText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleAddPerson}><Text style={styles.buttonText}>Save</Text></TouchableOpacity>
-            </View>
+              {form.source_type === 'savings' && (
+                <>
+                  <Text style={styles.label}>Savings Goal</Text>
+                  <View style={styles.pillsContainer}>
+                    {savingsGoals.map(sg => (
+                      <TouchableOpacity key={sg.id} style={[styles.pill, form.savings_sub_category_id === sg.id && styles.activePill]} onPress={() => setForm({...form, savings_sub_category_id: form.savings_sub_category_id === sg.id ? '' : sg.id})}>
+                        <Text style={[styles.pillText, form.savings_sub_category_id === sg.id && styles.activePillText]}>{sg.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.saveBtnGradient}>
+                  <Text style={styles.saveBtnText}>Save Record</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Pay Debt Modal */}
-      <Modal visible={payModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContainer}>
+      {/* ADD PERSON MODAL */}
+      <Modal visible={personModalVisible} transparent={true} animationType="fade">
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Record Repayment</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Amount to record (e.g. 50)"
-              placeholderTextColor="#8A8A9E"
-              keyboardType="decimal-pad"
-              value={payForm.amount}
-              onChangeText={(val) => setPayForm({ ...payForm, amount: val })}
-              autoFocus
-            />
-            
-            {selectedDebt?.source_type !== 'savings' && (
-              <>
-                <Text style={{color: '#8A8A9E', marginBottom: 8, fontWeight: '600'}}>Bank Account for transaction (Optional):</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
-                  {banks.map(bank => (
-                    <TouchableOpacity 
-                      key={bank.id} 
-                      style={[{backgroundColor: '#2A2A3D', padding: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8}, payForm.bank_account_id === bank.id && {backgroundColor: '#4ADE80'}]}
-                      onPress={() => setPayForm({...payForm, bank_account_id: payForm.bank_account_id === bank.id ? '' : bank.id})}
-                    >
-                      <Text style={[{color: '#8A8A9E', fontWeight: 'bold'}, payForm.bank_account_id === bank.id && {color: '#12121D'}]}>{bank.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-            
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setPayModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handlePay}>
-                <Text style={styles.buttonText}>Confirm</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Person</Text>
+              <TouchableOpacity onPress={() => setPersonModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
+            <Text style={styles.label}>Name</Text>
+            <TextInput style={styles.input} placeholder="John Doe" placeholderTextColor="#8A8A9E" value={personForm.name} onChangeText={(val) => setPersonForm({...personForm, name: val})} />
+            
+            <Text style={styles.label}>Phone (Optional)</Text>
+            <TextInput style={styles.input} placeholder="+92..." placeholderTextColor="#8A8A9E" keyboardType="phone-pad" value={personForm.phone} onChangeText={(val) => setPersonForm({...personForm, phone: val})} />
+            
+            <TouchableOpacity style={styles.saveBtn} onPress={handleAddPerson}>
+              <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.saveBtnGradient}>
+                <Text style={styles.saveBtnText}>Save Person</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* PAY MODAL */}
+      <Modal visible={payModalVisible} transparent={true} animationType="fade">
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{selectedDebt?.type === 'lent' ? 'Receive Payment' : 'Make Payment'}</Text>
+              <TouchableOpacity onPress={() => setPayModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Amount</Text>
+            <TextInput style={styles.input} placeholder={`Max: ${selectedDebt?.remaining}`} placeholderTextColor="#8A8A9E" keyboardType="numeric" value={payForm.amount} onChangeText={(val) => setPayForm({...payForm, amount: val})} />
+
+            {selectedDebt?.source_type !== 'savings' && (
+              <>
+                <Text style={styles.label}>Bank Account (Optional)</Text>
+                <View style={styles.pillsContainer}>
+                  {banks.map(b => (
+                    <TouchableOpacity key={b.id} style={[styles.pill, payForm.bank_account_id === b.id && styles.activePill]} onPress={() => setPayForm({...payForm, bank_account_id: payForm.bank_account_id === b.id ? '' : b.id})}>
+                      <Text style={[styles.pillText, payForm.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.saveBtn} onPress={handlePay}>
+              <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.saveBtnGradient}>
+                <Text style={styles.saveBtnText}>Confirm Payment</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -317,36 +333,38 @@ export default function UdharScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B14', paddingHorizontal: 24, paddingTop: 24 },
-  header: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 20 },
-  tabsContainer: { backgroundColor: '#1E1E2D', borderRadius: 16, padding: 4, marginBottom: 24 },
-  tabs: { flexDirection: 'row' },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
-  activeTab: { backgroundColor: '#2A2A3D', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
-  activeTabText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  inactiveTabText: { color: '#8A8A9E', fontWeight: '600', fontSize: 14 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
+  container: { flex: 1, backgroundColor: '#12121D', paddingTop: 60, paddingHorizontal: 24 },
+  header: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyStateText: { color: '#8A8A9E', marginTop: 12, fontSize: 16 },
-  card: { backgroundColor: '#1E1E2D', borderRadius: 20, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconWrapper: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  personCard: { backgroundColor: '#1E1E2D', borderRadius: 16, marginBottom: 12, overflow: 'hidden' },
+  personHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  personInfo: { flexDirection: 'row', alignItems: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(74, 222, 128, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  avatarText: { color: '#4ADE80', fontSize: 18, fontWeight: 'bold' },
   name: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  date: { color: '#8A8A9E', fontSize: 12, marginTop: 4 },
-  amount: { fontSize: 18, fontWeight: 'bold' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginTop: 6 },
-  statusText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
-  fab: { position: 'absolute', bottom: 30, right: 24, backgroundColor: '#4ADE80', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#4ADE80', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 8 },
-  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#1E1E2D', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20 },
-  input: { backgroundColor: '#12121D', color: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, fontSize: 16 },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  cancelButton: { flex: 1, backgroundColor: '#2A2A3D', padding: 16, borderRadius: 12, alignItems: 'center', marginRight: 8 },
-  saveButton: { flex: 1, backgroundColor: '#4ADE80', padding: 16, borderRadius: 12, alignItems: 'center', marginLeft: 8 },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  label: { color: '#8A8A9E', fontSize: 14, fontWeight: '600', marginBottom: 8, marginTop: 4 },
-  pill: { backgroundColor: '#2A2A3D', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 8 },
-  activePill: { backgroundColor: '#4ADE80' },
-  pillText: { color: '#8A8A9E', fontWeight: '600' },
-  activePillText: { color: '#12121D' }
+  netText: { fontSize: 13, marginTop: 2 },
+  debtsContainer: { backgroundColor: '#161622', padding: 12, borderTopWidth: 1, borderTopColor: '#2A2A3D' },
+  debtItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1E1E2D' },
+  amount: { fontSize: 15, fontWeight: 'bold' },
+  statusText: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize' },
+  fabContainer: { position: 'absolute', bottom: 24, right: 24, flexDirection: 'row', gap: 16 },
+  fabLent: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', elevation: 5, shadowColor: '#4ADE80', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fabBorrowed: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', elevation: 5, shadowColor: '#F87171', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fabGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#1E1E2D', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  label: { color: '#8A8A9E', fontSize: 14, marginBottom: 8, marginTop: 16 },
+  input: { backgroundColor: '#12121D', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pillsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: { backgroundColor: '#12121D', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#2A2A3D' },
+  activePill: { backgroundColor: 'rgba(74, 222, 128, 0.1)', borderColor: '#4ADE80' },
+  pillText: { color: '#8A8A9E', fontSize: 14 },
+  activePillText: { color: '#4ADE80', fontWeight: '600' },
+  saveBtn: { height: 56, borderRadius: 12, overflow: 'hidden', marginTop: 32 },
+  saveBtnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  saveBtnText: { color: '#12121D', fontSize: 16, fontWeight: 'bold' },
 });
