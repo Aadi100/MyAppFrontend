@@ -16,17 +16,27 @@ export default function Dashboard() {
 
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const accessToken = useStore(state => state.accessToken);
 
   useEffect(() => {
-    fetchDashboardSummary(currentMonth);
-  }, [currentMonth]);
+    if (!accessToken) {
+      router.replace('/login');
+    } else {
+      fetchData();
+      fetchDashboardSummary(currentMonth);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (accessToken) {
+      fetchDashboardSummary(currentMonth);
+    }
+  }, [currentMonth, accessToken]);
 
   const totalBalance = dashboardSummary?.total_bank_balance || 0;
   const netWorth = dashboardSummary?.net_worth || 0;
   const totalPosition = dashboardSummary?.total || 0;
+  const totalOverspend = dashboardSummary?.total_overspend || 0;
   const income = dashboardSummary?.total_assigned_budget || 0;
   const spent = dashboardSummary?.total_spent_this_month || 0;
   const savings = dashboardSummary?.total_savings_saved || 0;
@@ -64,9 +74,9 @@ export default function Dashboard() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Good Morning,</Text>
-            <Text style={styles.name}>Abdul Hadi</Text>
+            <Text style={styles.name}>{useStore(state => state.profile?.name) || 'Abdul Hadi'}</Text>
           </View>
-          <TouchableOpacity style={styles.profileBtn}>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/profile')}>
             <Ionicons name="person" size={24} color="#4ADE80" />
           </TouchableOpacity>
         </View>
@@ -95,6 +105,10 @@ export default function Dashboard() {
             <View>
               <Text style={styles.mainCardSubLabel}>Bank Balances</Text>
               <Text style={styles.mainCardSubAmount}>{fmt(totalBalance)}</Text>
+            </View>
+            <View>
+              <Text style={styles.mainCardSubLabel}>Overspend</Text>
+              <Text style={[styles.mainCardSubAmount, {color: '#8B0000'}]}>{fmt(totalOverspend)}</Text>
             </View>
           </View>
         </LinearGradient>

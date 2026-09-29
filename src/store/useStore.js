@@ -5,10 +5,13 @@ const BASE_URL = 'https://bpdxcicflehdmrpnrnyl.supabase.co/functions/v1';
 const ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 const apiFetch = async (endpoint, options = {}) => {
+  const state = useStore.getState();
+  const token = state.accessToken || ANON_KEY;
+  
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${ANON_KEY}`,
+      'Authorization': `Bearer ${token}`,
       'apikey': ANON_KEY,
       'Content-Type': 'application/json',
       ...options.headers,
@@ -16,12 +19,14 @@ const apiFetch = async (endpoint, options = {}) => {
   });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${response.status}`);
+    throw new Error(errorData.error || errorData.error_description || `HTTP error ${response.status}`);
   }
   return response.json();
 };
 
 export const useStore = create((set, get) => ({
+  accessToken: null,
+  profile: null,
   expenses: [],
   savings: [],
   savingsWithdrawals: [],
@@ -49,6 +54,127 @@ export const useStore = create((set, get) => ({
       });
     } catch (e) {
       console.error('Failed to fetch initial data:', e);
+    }
+  },
+
+  login: async (email, password) => {
+    try {
+      const response = await fetch('https://bpdxcicflehdmrpnrnyl.supabase.co/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error_description || 'Login failed');
+      }
+      const data = await response.json();
+      set({ accessToken: data.access_token });
+      await get().fetchProfile();
+      await get().fetchData();
+      return true;
+    } catch (e) {
+      console.error('Login error:', e);
+      Alert.alert('Login Failed', e.message);
+      return false;
+    }
+  },
+
+  signup: async (email, password, name, phone) => {
+    try {
+      const response = await fetch('https://bpdxcicflehdmrpnrnyl.supabase.co/auth/v1/signup', {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          data: { name },
+          phone
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.msg || 'Signup failed');
+      }
+      return true;
+    } catch (e) {
+      console.error('Signup error:', e);
+      Alert.alert('Signup Failed', e.message);
+      return false;
+    }
+  },
+
+  recoverPassword: async (email) => {
+    try {
+      const response = await fetch('https://bpdxcicflehdmrpnrnyl.supabase.co/auth/v1/recover', {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.msg || 'Recovery request failed');
+      }
+      return true;
+    } catch (e) {
+      console.error('Recover error:', e);
+      Alert.alert('Error', e.message);
+      return false;
+    }
+  },
+
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await fetch('https://bpdxcicflehdmrpnrnyl.supabase.co/auth/v1/user', {
+        method: 'PUT',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.msg || 'Password reset failed');
+      }
+      return true;
+    } catch (e) {
+      console.error('Reset error:', e);
+      Alert.alert('Reset Failed', e.message);
+      return false;
+    }
+  },
+
+  fetchProfile: async () => {
+    try {
+      const profile = await apiFetch('/get-profile');
+      set({ profile });
+    } catch (e) {
+      console.error('Failed to fetch profile:', e);
+    }
+  },
+
+  updateProfile: async (data) => {
+    try {
+      const updated = await apiFetch('/update-profile', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+      set({ profile: updated });
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (e) {
+      console.error('Failed to update profile:', e);
+      Alert.alert('Error', e.message);
     }
   },
 
@@ -361,14 +487,9 @@ export const useStore = create((set, get) => ({
 
   receiveIncome: async (payload) => {
     try {
-      const { income_sub_category_id, ...rest } = payload;
-      await apiFetch('/create-transaction', {
+      await apiFetch('/receive-income', {
         method: 'POST',
-        body: JSON.stringify({
-          ...rest,
-          sub_category_id: income_sub_category_id,
-          type: 'credit'
-        }),
+        body: JSON.stringify(payload),
       });
       get().fetchData();
       get().fetchDashboardSummary(payload.for_month);
