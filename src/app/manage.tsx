@@ -312,25 +312,7 @@ export default function ManageScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Import Data Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="document-text" size={20} color="#8B5CF6" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitle}>Import Data</Text>
-            </View>
-          </View>
-          <TouchableOpacity onPress={handleImportData} style={[styles.card, { flexDirection: 'row', alignItems: 'center' }]}>
-            <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', padding: 12, borderRadius: 12, marginRight: 16 }}>
-              <Ionicons name="cloud-upload" size={24} color="#8B5CF6" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemText}>Import Transactions</Text>
-              <Text style={{ color: '#8A8A9E', fontSize: 13, marginTop: 4 }}>Select a CSV or PDF file to import</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#8A8A9E" />
-          </TouchableOpacity>
-        </View>
+
 
         <View style={{height: 40}} />
       </ScrollView>
