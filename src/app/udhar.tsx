@@ -35,7 +35,6 @@ export default function UdharScreen() {
 
   const handleSave = () => {
     if (!form.person_id || !form.amount) return;
-    if (form.source_type === 'bank' && (!form.bank_account_id || !form.sub_category_id)) return;
     if (form.source_type === 'savings' && !form.savings_sub_category_id) return;
 
     if (form.source_type === 'savings') {
@@ -44,16 +43,18 @@ export default function UdharScreen() {
         amount: parseFloat(form.amount),
         type: activeTab,
         source_type: 'savings',
-        savings_sub_category_id: form.savings_sub_category_id
+        savings_sub_category_id: form.savings_sub_category_id,
+        date: new Date().toISOString()
       });
     } else {
       addDebt({
         person_id: form.person_id,
-        bank_account_id: form.bank_account_id,
-        sub_category_id: form.sub_category_id,
+        bank_account_id: form.bank_account_id || null,
+        sub_category_id: form.sub_category_id || null,
         amount: parseFloat(form.amount),
         type: activeTab,
-        source_type: 'bank'
+        source_type: 'bank',
+        date: new Date().toISOString()
       });
     }
     setForm({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
@@ -70,12 +71,12 @@ export default function UdharScreen() {
   const handlePay = () => {
     if (!payForm.amount) return;
     const isSavings = selectedDebt?.source_type === 'savings';
-    if (!isSavings && !payForm.bank_account_id) return;
 
     payDebt({
       debt_id: payForm.debt_id,
       amount: parseFloat(payForm.amount),
-      ...(isSavings ? {} : { bank_account_id: payForm.bank_account_id })
+      date: new Date().toISOString(),
+      ...(isSavings ? {} : (payForm.bank_account_id ? { bank_account_id: payForm.bank_account_id } : {}))
     });
     setPayForm({ debt_id: '', amount: '', bank_account_id: '' });
     setSelectedDebt(null);
@@ -195,19 +196,19 @@ export default function UdharScreen() {
 
               {form.source_type === 'bank' ? (
                 <>
-                  <Text style={styles.label}>Bank Account:</Text>
+                  <Text style={styles.label}>Bank Account (Optional):</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
                     {banks.map(b => (
-                      <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: b.id})}>
+                      <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: form.bank_account_id === b.id ? '' : b.id})}>
                         <Text style={[styles.pillText, form.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
 
-                  <Text style={styles.label}>Category:</Text>
+                  <Text style={styles.label}>Category (Optional):</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
                     {subCategories.map(c => (
-                      <TouchableOpacity key={c.id} style={[styles.pill, form.sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: c.id})}>
+                      <TouchableOpacity key={c.id} style={[styles.pill, form.sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: form.sub_category_id === c.id ? '' : c.id})}>
                         <Text style={[styles.pillText, form.sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
                       </TouchableOpacity>
                     ))}
@@ -285,13 +286,13 @@ export default function UdharScreen() {
             
             {selectedDebt?.source_type !== 'savings' && (
               <>
-                <Text style={{color: '#8A8A9E', marginBottom: 8, fontWeight: '600'}}>Bank Account for transaction:</Text>
+                <Text style={{color: '#8A8A9E', marginBottom: 8, fontWeight: '600'}}>Bank Account for transaction (Optional):</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
                   {banks.map(bank => (
                     <TouchableOpacity 
                       key={bank.id} 
                       style={[{backgroundColor: '#2A2A3D', padding: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8}, payForm.bank_account_id === bank.id && {backgroundColor: '#4ADE80'}]}
-                      onPress={() => setPayForm({...payForm, bank_account_id: bank.id})}
+                      onPress={() => setPayForm({...payForm, bank_account_id: payForm.bank_account_id === bank.id ? '' : bank.id})}
                     >
                       <Text style={[{color: '#8A8A9E', fontWeight: 'bold'}, payForm.bank_account_id === bank.id && {color: '#12121D'}]}>{bank.name}</Text>
                     </TouchableOpacity>
