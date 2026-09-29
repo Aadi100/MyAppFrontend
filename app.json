@@ -50,6 +50,12 @@
         "projectId": "a66a1557-b377-4388-9ecc-e44ee2745818"
       }
     },
-    "owner": "aadii"
+    "owner": "aadii",
+    "updates": {
+      "url": "https://u.expo.dev/a66a1557-b377-4388-9ecc-e44ee2745818"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
