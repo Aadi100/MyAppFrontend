@@ -25,6 +25,8 @@ export default function Dashboard() {
   }, [currentMonth]);
 
   const totalBalance = dashboardSummary?.total_bank_balance || 0;
+  const netWorth = dashboardSummary?.net_worth || 0;
+  const totalPosition = dashboardSummary?.total || 0;
   const income = dashboardSummary?.total_assigned_budget || 0;
   const spent = dashboardSummary?.total_spent_this_month || 0;
   const savings = dashboardSummary?.total_savings_saved || 0;
@@ -82,22 +84,32 @@ export default function Dashboard() {
         </View>
 
         <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.mainCard} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-          <Text style={styles.mainCardLabel}>Total Balance</Text>
-          <Text style={styles.mainCardAmount}>{fmt(totalBalance)}</Text>
+          <Text style={styles.mainCardLabel}>Total Assets</Text>
+          <Text style={styles.mainCardAmount}>{fmt(totalPosition)}</Text>
           
           <View style={styles.mainCardStats}>
             <View>
-              <Text style={styles.mainCardSubLabel}>Monthly Budget</Text>
-              <Text style={styles.mainCardSubAmount}>{fmt(income)}</Text>
+              <Text style={styles.mainCardSubLabel}>Net Worth</Text>
+              <Text style={styles.mainCardSubAmount}>{fmt(netWorth)}</Text>
             </View>
             <View>
-              <Text style={styles.mainCardSubLabel}>Spent so far</Text>
-              <Text style={styles.mainCardSubAmount}>-{fmt(spent)}</Text>
+              <Text style={styles.mainCardSubLabel}>Bank Balances</Text>
+              <Text style={styles.mainCardSubAmount}>{fmt(totalBalance)}</Text>
             </View>
           </View>
         </LinearGradient>
 
         <View style={styles.grid}>
+          <View style={styles.gridItem}>
+            <Ionicons name="pie-chart-outline" size={24} color="#A78BFA" />
+            <Text style={styles.gridLabel}>Monthly Budget</Text>
+            <Text style={styles.gridAmount}>{fmt(income)}</Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Ionicons name="cart-outline" size={24} color="#F87171" />
+            <Text style={styles.gridLabel}>Spent so far</Text>
+            <Text style={styles.gridAmount}>{fmt(spent)}</Text>
+          </View>
           <View style={styles.gridItem}>
             <Ionicons name="wallet-outline" size={24} color="#FBBF24" />
             <Text style={styles.gridLabel}>Total Savings</Text>
@@ -114,7 +126,7 @@ export default function Dashboard() {
             <Text style={styles.gridAmount}>{fmt(iOwe)}</Text>
           </View>
           <View style={styles.gridItem}>
-            <Ionicons name="pie-chart-outline" size={24} color="#A78BFA" />
+            <Ionicons name="cash-outline" size={24} color="#34D399" />
             <Text style={styles.gridLabel}>Remaining</Text>
             <Text style={styles.gridAmount}>{fmt(income - spent)}</Text>
           </View>
