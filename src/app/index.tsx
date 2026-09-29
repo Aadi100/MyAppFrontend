@@ -141,8 +141,18 @@ export default function Dashboard() {
                 return (
                   <View key={idx} style={styles.progressRow}>
                     <View style={styles.progressHeader}>
-                      <Text style={styles.progressName}>{sub.name}</Text>
-                      <Text style={styles.progressAmounts}>{fmt(sub.spent)} / {fmt(sub.assigned_budget)}</Text>
+                      <View>
+                        <Text style={styles.progressName}>{sub.name}</Text>
+                        <Text style={styles.progressAmounts}>{fmt(sub.spent)} / {fmt(sub.assigned_budget)}</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={[styles.progressName, { fontSize: 12, color: sub.remaining < 0 ? '#F87171' : '#4ADE80' }]}>
+                          {sub.remaining < 0 ? 'Overspent' : 'Remaining'}
+                        </Text>
+                        <Text style={[styles.progressAmounts, { color: sub.remaining < 0 ? '#F87171' : '#4ADE80', fontWeight: 'bold' }]}>
+                          {fmt(sub.remaining)}
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.progressBarBg}>
                       <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: perc > 90 ? '#F87171' : '#4ADE80' }]} />
@@ -222,7 +232,9 @@ export default function Dashboard() {
                     <Text style={styles.tDate}>{new Date(expense.date).toLocaleDateString()}</Text>
                   </View>
                 </View>
-                <Text style={styles.tAmountExpense}>-{fmt(expense.amount)}</Text>
+                <Text style={[styles.tAmountExpense, expense.type === 'credit' && { color: '#4ADE80' }]}>
+                  {expense.type === 'credit' ? '+' : '-'}{fmt(expense.amount)}
+                </Text>
               </View>
             ))
           )}
