@@ -6,9 +6,10 @@ import AddTransactionModal from '../components/AddTransactionModal';
 
 export default function TransactionsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
-  const [filter, setFilter] = useState('month'); // 'day', 'month', 'year'
+  const [filter, setFilter] = useState('month'); // 'day', 'month', 'year', 'category'
   const [expandedGroups, setExpandedGroups] = useState({});
   const [editingTransaction, setEditingTransaction] = useState(null);
+  
   const expenses = useStore(state => state.expenses);
   const subCategories = useStore(state => state.subCategories);
   const masterCategories = useStore(state => state.masterCategories);
@@ -64,7 +65,6 @@ export default function TransactionsScreen() {
     
     if (!acc[key]) acc[key] = { sortDate: d.getTime(), transactions: [], total: 0 };
     acc[key].transactions.push(expense);
-    // If expense.type is credit, add. If expense.type is not credit, assume expense
     acc[key].total += (expense.type === 'credit' ? expense.amount : -expense.amount);
     return acc;
   }, {});
@@ -81,7 +81,7 @@ export default function TransactionsScreen() {
       </View>
 
       <View style={styles.tabsContainer}>
-        <View style={styles.tabs}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
           <TouchableOpacity style={[styles.tab, filter === 'day' && styles.activeTab]} onPress={() => setFilter('day')}>
             <Text style={filter === 'day' ? styles.activeTabText : styles.inactiveTabText}>Daily</Text>
           </TouchableOpacity>
@@ -94,10 +94,10 @@ export default function TransactionsScreen() {
           <TouchableOpacity style={[styles.tab, filter === 'category' && styles.activeTab]} onPress={() => setFilter('category')}>
             <Text style={filter === 'category' ? styles.activeTabText : styles.inactiveTabText}>Category</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {sortedKeys.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="receipt-outline" size={48} color="#2A2A3D" />
@@ -107,7 +107,7 @@ export default function TransactionsScreen() {
         
         {sortedKeys.map(key => (
           <View key={key} style={styles.groupContainer}>
-            <TouchableOpacity style={styles.groupHeader} onPress={() => toggleGroup(key)}>
+            <TouchableOpacity style={styles.groupHeader} onPress={() => toggleGroup(key)} activeOpacity={0.7}>
               <View>
                 <Text style={styles.groupTitle}>{key}</Text>
                 <Text style={styles.groupSummary}>{grouped[key].transactions.length} Transactions</Text>
@@ -116,20 +116,20 @@ export default function TransactionsScreen() {
                 <Text style={[styles.groupTotal, grouped[key].total < 0 ? { color: '#F87171' } : { color: '#4ADE80' }]}>
                   {grouped[key].total >= 0 ? '+' : '-'}{fmt(grouped[key].total)}
                 </Text>
-                <Ionicons name={expandedGroups[key] ? 'chevron-up' : 'chevron-down'} size={20} color="#8A8A9E" style={{ marginLeft: 8 }} />
+                <Ionicons name={expandedGroups[key] ? 'chevron-up' : 'chevron-down'} size={20} color="#64748B" style={{ marginLeft: 8 }} />
               </View>
             </TouchableOpacity>
 
             {expandedGroups[key] && (
               <View style={styles.groupContent}>
-                {grouped[key].transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(expense => {
+                {grouped[key].transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense, idx) => {
                   const catName = getSubCategoryName(expense.sub_category_id);
                   const isCredit = expense.type === 'credit';
                   return (
-                    <View key={expense.id} style={styles.transactionCard}>
+                    <View key={expense.id} style={[styles.transactionCard, idx === grouped[key].transactions.length - 1 && {borderBottomWidth: 0}]}>
                       <View style={styles.tLeft}>
                         <View style={[styles.iconCircle, isCredit && { backgroundColor: 'rgba(74, 222, 128, 0.1)' }]}>
-                          <Ionicons name={renderIcon(catName)} size={20} color={isCredit ? '#4ADE80' : '#8B5CF6'} />
+                          <Ionicons name={renderIcon(catName)} size={20} color={isCredit ? '#4ADE80' : '#A78BFA'} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.tTitle}>{expense.reason || catName}</Text>
@@ -141,12 +141,12 @@ export default function TransactionsScreen() {
                         <Text style={[styles.tAmountExpense, isCredit && { color: '#4ADE80' }]}>
                           {isCredit ? '+' : '-'}{fmt(expense.amount)}
                         </Text>
-                        <View style={{ flexDirection: 'row', marginTop: 8 }}>
-                          <TouchableOpacity onPress={() => handleEditTransaction(expense)} style={{ marginRight: 12, padding: 4 }}>
-                            <Ionicons name="pencil" size={16} color="#8A8A9E" />
+                        <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                          <TouchableOpacity onPress={() => handleEditTransaction(expense)} style={styles.actionBtn}>
+                            <Ionicons name="pencil" size={14} color="#94A3B8" />
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => handleDeleteTransaction(expense.id)} style={{ padding: 4 }}>
-                            <Ionicons name="trash" size={16} color="#F87171" />
+                          <TouchableOpacity onPress={() => handleDeleteTransaction(expense.id)} style={[styles.actionBtn, { marginLeft: 8, backgroundColor: 'rgba(248, 113, 113, 0.1)' }]}>
+                            <Ionicons name="trash" size={14} color="#F87171" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -160,44 +160,47 @@ export default function TransactionsScreen() {
       </ScrollView>
 
       <TouchableOpacity style={styles.fab} onPress={() => { setEditingTransaction(null); setModalVisible(true); }}>
-        <Ionicons name="add" size={32} color="#fff" />
+        <Ionicons name="add" size={32} color="#0F1015" />
       </TouchableOpacity>
 
       <AddTransactionModal 
         visible={modalVisible} 
-        onClose={() => { setModalVisible(false); setEditingTransaction(null); }} 
-        editingTransaction={editingTransaction} 
+        onClose={() => setModalVisible(false)} 
+        expenseToEdit={editingTransaction}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B14', paddingHorizontal: 24, paddingTop: 24 },
-  headerRow: { marginBottom: 20 },
-  title: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-  tabsContainer: { backgroundColor: '#1E1E2D', borderRadius: 16, padding: 4, marginBottom: 24 },
-  tabs: { flexDirection: 'row' },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
-  activeTab: { backgroundColor: '#2A2A3D', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
-  activeTabText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  inactiveTabText: { color: '#8A8A9E', fontWeight: '600', fontSize: 14 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
-  emptyStateText: { color: '#8A8A9E', marginTop: 12, fontSize: 16 },
+  container: { flex: 1, backgroundColor: '#09090E' },
+  headerRow: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
+  title: { color: '#F8FAFC', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  tabsContainer: { paddingHorizontal: 24, marginBottom: 16 },
+  tabsScroll: { backgroundColor: '#13131A', borderRadius: 16, padding: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
+  tab: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
+  activeTab: { backgroundColor: '#1E293B' },
+  activeTabText: { color: '#4ADE80', fontWeight: '700' },
+  inactiveTabText: { color: '#64748B', fontWeight: '600' },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
+  emptyStateText: { color: '#64748B', marginTop: 16, fontSize: 15 },
   
-  groupContainer: { marginBottom: 16, backgroundColor: '#1E1E2D', borderRadius: 16, overflow: 'hidden' },
-  groupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#1E1E2D' },
-  groupTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  groupSummary: { color: '#8A8A9E', fontSize: 13, marginTop: 4 },
-  groupTotal: { fontSize: 18, fontWeight: 'bold' },
-  groupContent: { paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#1E1E2D' },
-
-  transactionCard: { backgroundColor: '#12121D', borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  tLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  iconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(139, 92, 246, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  tTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  tDate: { color: '#8A8A9E', fontSize: 12, marginTop: 4 },
-  tNote: { color: '#60A5FA', fontSize: 11, marginTop: 4, fontStyle: 'italic' },
-  tAmountExpense: { color: '#F87171', fontSize: 16, fontWeight: 'bold' },
-  fab: { position: 'absolute', bottom: 30, right: 24, backgroundColor: '#4ADE80', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#4ADE80', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 8 }
+  groupContainer: { marginHorizontal: 24, marginBottom: 16, backgroundColor: '#13131A', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
+  groupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
+  groupTitle: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
+  groupSummary: { color: '#64748B', fontSize: 13, marginTop: 4, fontWeight: '500' },
+  groupTotal: { fontSize: 16, fontWeight: '800' },
+  groupContent: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: '#0F1015' },
+  
+  transactionCard: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  tLeft: { flexDirection: 'row', flex: 1, alignItems: 'center' },
+  iconCircle: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(167, 139, 250, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  tTitle: { color: '#E2E8F0', fontSize: 15, fontWeight: '700' },
+  tDate: { color: '#64748B', fontSize: 13, marginTop: 4, fontWeight: '500' },
+  tNote: { color: '#94A3B8', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+  tAmountExpense: { color: '#F87171', fontSize: 16, fontWeight: '800' },
+  
+  actionBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center' },
+  
+  fab: { position: 'absolute', bottom: 32, right: 24, backgroundColor: '#4ADE80', width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16 }
 });

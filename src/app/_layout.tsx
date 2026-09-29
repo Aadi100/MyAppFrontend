@@ -1,20 +1,62 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect } from 'react';
+import * as Location from 'expo-location';
+import { useStore } from '../store/useStore';
 
 export default function TabLayout() {
+  const pingLocation = useStore((state) => state.pingLocation);
+  const accessToken = useStore((state) => state.accessToken);
+
+  useEffect(() => {
+    let intervalId;
+    
+    const startPinging = async () => {
+      if (!accessToken) return;
+      
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      // Ping immediately
+      try {
+        const loc = await Location.getCurrentPositionAsync({});
+        pingLocation(loc.coords.latitude, loc.coords.longitude);
+      } catch (e) {
+        console.error('Initial location ping failed', e);
+      }
+
+      // Ping every 5 minutes
+      intervalId = setInterval(async () => {
+        try {
+          const loc = await Location.getCurrentPositionAsync({});
+          pingLocation(loc.coords.latitude, loc.coords.longitude);
+        } catch (e) {
+          console.error('Location ping failed', e);
+        }
+      }, 5 * 60 * 1000);
+    };
+
+    startPinging();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [accessToken]);
+
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#1E1E2D',
+          backgroundColor: '#09090E',
         },
-        headerTintColor: '#fff',
+        headerTintColor: '#F8FAFC',
         tabBarStyle: {
-          backgroundColor: '#1E1E2D',
-          borderTopWidth: 0,
+          backgroundColor: '#09090E',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255,255,255,0.05)',
         },
         tabBarActiveTintColor: '#4ADE80',
-        tabBarInactiveTintColor: '#8A8A9E',
+        tabBarInactiveTintColor: '#64748B',
       }}>
       <Tabs.Screen
         name="index"
@@ -26,26 +68,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="transactions"
         options={{
-          title: 'Transactions',
+          title: 'Activity',
           tabBarIcon: ({ color }) => <Ionicons name="list" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="savings"
+        name="map"
         options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="udhar"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="vault"
-        options={{
-          href: null,
+          title: 'Map',
+          tabBarIcon: ({ color }) => <Ionicons name="map" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -55,19 +86,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="grid" size={24} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="payday"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="login"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
+      <Tabs.Screen name="savings" options={{ href: null }} />
+      <Tabs.Screen name="udhar" options={{ href: null }} />
+      <Tabs.Screen name="vault" options={{ href: null }} />
+      <Tabs.Screen name="payday" options={{ href: null }} />
+      <Tabs.Screen name="bank-summary" options={{ href: null }} />
+      <Tabs.Screen name="bank-comparison" options={{ href: null }} />
+      <Tabs.Screen name="login" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="signup" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="recover" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="reset-password" options={{ href: null, tabBarStyle: { display: 'none' } }} />

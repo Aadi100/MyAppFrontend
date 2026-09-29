@@ -147,24 +147,36 @@ export default function ManageScreen() {
         <Text style={styles.header}>Menu</Text>
 
         {/* Apps Grid */}
-        <View style={styles.menuGrid}>
-          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/savings')}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/savings')}>
             <LinearGradient colors={['#FBBF24', '#F59E0B']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
               <Ionicons name="wallet" size={28} color="#fff" />
             </LinearGradient>
             <Text style={styles.menuGridText}>Savings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/udhar')}>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/udhar')}>
             <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
               <Ionicons name="people" size={28} color="#fff" />
             </LinearGradient>
             <Text style={styles.menuGridText}>Udhar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/vault')}>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/vault')}>
             <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
               <Ionicons name="key" size={28} color="#fff" />
             </LinearGradient>
             <Text style={styles.menuGridText}>Vault</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/payday')}>
+            <LinearGradient colors={['#10B981', '#059669']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="cash" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Payday</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/profile')}>
+            <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="person" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Profile</Text>
           </TouchableOpacity>
         </View>
 
@@ -300,18 +312,29 @@ export default function ManageScreen() {
           </View>
         </View>
 
-        {/* Payday Feature Link */}
-        <TouchableOpacity onPress={() => router.push('/payday')} style={{marginTop: 10, marginBottom: 20}}>
-          <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.paydayButton} start={{x:0,y:0}} end={{x:1,y:1}}>
-            <Ionicons name="cash" size={28} color="#000" style={{marginRight: 12}} />
-            <View>
-              <Text style={styles.paydayText}>Salary Allocation</Text>
-              <Text style={styles.paydaySubtext}>Budget your payday seamlessly</Text>
+        {/* Data Management Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <Ionicons name="cloud-upload" size={20} color="#8B5CF6" style={{marginRight: 8}} />
+              <Text style={styles.sectionTitle}>Data Management</Text>
             </View>
-            <Ionicons name="arrow-forward" size={24} color="#000" style={{marginLeft: 'auto'}} />
-          </LinearGradient>
-        </TouchableOpacity>
-
+          </View>
+          <View style={styles.card}>
+            <TouchableOpacity style={[styles.listItem, { borderBottomWidth: 0 }]} onPress={handleImportData}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <View style={[styles.iconBtn, { backgroundColor: 'rgba(139,92,246,0.1)', padding: 12, marginRight: 16, borderRadius: 16 }]}>
+                  <Ionicons name="document-text" size={24} color="#8B5CF6" />
+                </View>
+                <View>
+                  <Text style={styles.itemText}>Import Transactions</Text>
+                  <Text style={{color: '#64748B', fontSize: 13, marginTop: 4}}>Upload CSV or Bank PDF</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
 
         <View style={{height: 40}} />
@@ -573,129 +596,44 @@ export default function ManageScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B14', paddingHorizontal: 24, paddingTop: 24 },
-  header: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 30 },
+  container: { flex: 1, backgroundColor: '#09090E', paddingHorizontal: 24, paddingTop: 60 },
+  header: { color: '#F8FAFC', fontSize: 28, fontWeight: '800', marginBottom: 30, letterSpacing: -0.5 },
   section: { marginBottom: 32 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  addButtonIcon: { backgroundColor: '#1E1E2D', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#1E1E2D', borderRadius: 24, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
-  emptyText: { color: '#8A8A9E', padding: 8 },
+  sectionTitle: { color: '#E2E8F0', fontSize: 18, fontWeight: '800' },
+  addButtonIcon: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  card: { backgroundColor: '#13131A', borderRadius: 24, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
+  emptyText: { color: '#64748B', padding: 8, fontStyle: 'italic' },
   listItemContainer: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingVertical: 12 },
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  itemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '700' },
   actionRow: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { padding: 8, marginLeft: 4 },
-  subCatContainer: { paddingLeft: 16, marginTop: 8 },
-  subCatRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 4 },
-  treeLine: { width: 12, height: 1, backgroundColor: '#8A8A9E', marginRight: 8 },
-  subCatText: { color: '#8A8A9E', fontSize: 14, flex: 1 },
-  paydayButton: { borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#4ADE80', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
-  paydayText: { color: '#000', fontSize: 18, fontWeight: '900' },
-  paydaySubtext: { color: 'rgba(0,0,0,0.6)', fontSize: 13, fontWeight: '600' },
+  iconBtn: { padding: 8, marginLeft: 4, backgroundColor: '#1E293B', borderRadius: 12 },
+  subCatContainer: { paddingLeft: 16, marginTop: 12 },
+  subCatRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 6 },
+  treeLine: { width: 12, height: 1, backgroundColor: '#4ADE80', marginRight: 12, opacity: 0.5 },
+  subCatText: { color: '#94A3B8', fontSize: 14, flex: 1, fontWeight: '500' },
   menuGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
   menuGridItem: { alignItems: 'center', width: '30%' },
   menuIconBg: { width: 64, height: 64, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
-  menuGridText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#1E1E2D',
-    borderRadius: 16,
-    padding: 24,
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  input: {
-    backgroundColor: '#12121D',
-    color: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#2A2A3D',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#4ADE80',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  sheetContent: {
-    backgroundColor: '#1E1E2D',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  sheetTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  sheetInput: {
-    backgroundColor: '#12121D',
-    color: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  sheetLabel: {
-    color: '#8A8A9E',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  pill: {
-    backgroundColor: '#2A2A3D',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  activePill: {
-    backgroundColor: '#4ADE80',
-  },
-  pillText: {
-    color: '#8A8A9E',
-    fontWeight: '600',
-  },
-  activePillText: {
-    color: '#12121D',
-  }
+  menuGridText: { color: '#F8FAFC', fontSize: 14, fontWeight: '700' },
+  
+  modalContainer: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 },
+  modalContent: { backgroundColor: '#13131A', borderRadius: 28, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  modalTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', marginBottom: 20 },
+  input: { backgroundColor: '#1E293B', color: '#F8FAFC', borderRadius: 16, padding: 18, marginBottom: 20, fontSize: 16, fontWeight: '500' },
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  cancelButton: { flex: 1, backgroundColor: '#1E293B', padding: 18, borderRadius: 16, alignItems: 'center', marginRight: 8 },
+  saveButton: { flex: 1, backgroundColor: '#4ADE80', padding: 18, borderRadius: 16, alignItems: 'center', marginLeft: 8 },
+  buttonText: { color: '#0F1015', fontWeight: '800', fontSize: 16 },
+  
+  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheetContent: { backgroundColor: '#13131A', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  sheetTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', marginBottom: 24 },
+  sheetInput: { backgroundColor: '#1E293B', color: '#F8FAFC', padding: 18, borderRadius: 16, fontSize: 16, marginBottom: 16, fontWeight: '500' },
+  sheetLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '600', marginBottom: 12, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pill: { backgroundColor: '#1E293B', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  activePill: { backgroundColor: 'rgba(74, 222, 128, 0.1)', borderColor: '#4ADE80' },
+  pillText: { color: '#94A3B8', fontWeight: '600' },
+  activePillText: { color: '#4ADE80', fontWeight: '800' }
 });
