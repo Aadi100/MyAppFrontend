@@ -52,7 +52,7 @@ export default function PaydayScreen() {
       .map(key => ({ sub_category_id: key, amount: parseFloat(savingsAllocations[key]) || 0 }))
       .filter(a => a.amount > 0);
 
-    if ((savings_allocations.length > 0 || totalSalary > 0) && !selectedBank) {
+    if ((sub_category_allocations.length > 0 || savings_allocations.length > 0 || totalSalary > 0) && !selectedBank) {
       return Alert.alert("Wait", "Please select a bank account to fund or receive.");
     }
     

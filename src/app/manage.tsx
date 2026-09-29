@@ -144,7 +144,31 @@ export default function ManageScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.header}>Settings</Text>
+        <Text style={styles.header}>Menu</Text>
+
+        {/* Apps Grid */}
+        <View style={styles.menuGrid}>
+          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/savings')}>
+            <LinearGradient colors={['#FBBF24', '#F59E0B']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="wallet" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Savings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/udhar')}>
+            <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="people" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Udhar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuGridItem} onPress={() => router.push('/vault')}>
+            <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="key" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Vault</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.header, { fontSize: 20, marginBottom: 20 }]}>Settings & Configuration</Text>
 
         {/* Categories Section */}
         <View style={styles.section}>
@@ -249,20 +273,29 @@ export default function ManageScreen() {
               <Ionicons name="business" size={20} color="#FBBF24" style={{marginRight: 8}} />
               <Text style={styles.sectionTitle}>Bank Accounts</Text>
             </View>
-            <TouchableOpacity onPress={handleAddBank} style={styles.addButtonIcon}>
-              <Ionicons name="add" size={20} color="#fff" />
-            </TouchableOpacity>
+            <View style={{flexDirection: 'row'}}>
+              <TouchableOpacity onPress={() => router.push('/bank-comparison')} style={[styles.addButtonIcon, { marginRight: 8, backgroundColor: '#8B5CF6' }]}>
+                <Ionicons name="analytics" size={20} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddBank} style={styles.addButtonIcon}>
+                <Ionicons name="add" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.card}>
             {banks.length === 0 && <Text style={styles.emptyText}>No banks yet.</Text>}
             {banks.map((bank, index) => (
-              <View key={bank.id} style={[styles.listItem, index === banks.length - 1 && { borderBottomWidth: 0 }]}>
+              <TouchableOpacity 
+                key={bank.id} 
+                style={[styles.listItem, index === banks.length - 1 && { borderBottomWidth: 0 }]}
+                onPress={() => router.push(`/bank-summary?id=${bank.id}`)}
+              >
                 <Text style={styles.itemText}>{bank.name}</Text>
                 <View style={styles.actionRow}>
-                  <TouchableOpacity onPress={() => handleEditBank(bank)} style={styles.iconBtn}><Ionicons name="pencil" size={16} color="#8A8A9E" /></TouchableOpacity>
-                  <TouchableOpacity onPress={() => handleDelete(bank.name, () => deleteBankAccount(bank.id))} style={styles.iconBtn}><Ionicons name="trash" size={16} color="#F87171" /></TouchableOpacity>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleEditBank(bank); }} style={styles.iconBtn}><Ionicons name="pencil" size={16} color="#8A8A9E" /></TouchableOpacity>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(bank.name, () => deleteBankAccount(bank.id)); }} style={styles.iconBtn}><Ionicons name="trash" size={16} color="#F87171" /></TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -488,28 +521,24 @@ export default function ManageScreen() {
           <View style={styles.sheetContent}>
             <Text style={styles.sheetTitle}>Transfer Budget</Text>
             
-            <Text style={styles.sheetLabel}>From Category (Has Budget)</Text>
+            <Text style={styles.sheetLabel}>From Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {monthlyBudgets.map(b => {
-                const cat = subCategories.find(s => s.id === b.sub_category_id);
-                if (!cat) return null;
-                return (
-                  <TouchableOpacity 
-                    key={cat.id} 
-                    style={[styles.pill, transferForm.from_sub_category_id === cat.id && styles.activePill]} 
-                    onPress={() => setTransferForm({...transferForm, from_sub_category_id: cat.id})}
-                  >
-                    <Text style={[styles.pillText, transferForm.from_sub_category_id === cat.id && styles.activePillText]}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {subCategories.map(cat => (
+                <TouchableOpacity 
+                  key={cat.id} 
+                  style={[styles.pill, transferForm.from_sub_category_id === cat.id && styles.activePill]} 
+                  onPress={() => setTransferForm({...transferForm, from_sub_category_id: cat.id})}
+                >
+                  <Text style={[styles.pillText, transferForm.from_sub_category_id === cat.id && styles.activePillText]}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
 
             <Text style={styles.sheetLabel}>To Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {subCategories.filter(s => masterCategories.find(m => m.id === s.master_category_id)?.type === 'expense').map(cat => (
+              {subCategories.filter(s => s.id !== transferForm.from_sub_category_id).map(cat => (
                 <TouchableOpacity 
                   key={cat.id} 
                   style={[styles.pill, transferForm.to_sub_category_id === cat.id && styles.activePill]} 
@@ -582,6 +611,10 @@ const styles = StyleSheet.create({
   paydayButton: { borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#4ADE80', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
   paydayText: { color: '#000', fontSize: 18, fontWeight: '900' },
   paydaySubtext: { color: 'rgba(0,0,0,0.6)', fontSize: 13, fontWeight: '600' },
+  menuGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
+  menuGridItem: { alignItems: 'center', width: '30%' },
+  menuIconBg: { width: 64, height: 64, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+  menuGridText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',

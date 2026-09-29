@@ -18,24 +18,45 @@ export default function UdharScreen() {
   const displayedDebts = debts.filter(d => d.type === activeTab);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState({ person_id: '', amount: '', bank_account_id: '', sub_category_id: '' });
+  const [form, setForm] = useState({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
   
   const [personModalVisible, setPersonModalVisible] = useState(false);
   const [personForm, setPersonForm] = useState({ name: '', phone: '' });
 
   const [payModalVisible, setPayModalVisible] = useState(false);
   const [payForm, setPayForm] = useState({ debt_id: '', amount: '', bank_account_id: '' });
+  const [selectedDebt, setSelectedDebt] = useState(null);
+
+  const masterCategories = useStore((state) => state.masterCategories);
+  const savingsGoals = subCategories.filter(sub => {
+    const master = masterCategories.find(mc => mc.id === sub.master_category_id);
+    return master && master.type === 'savings';
+  });
 
   const handleSave = () => {
-    if (!form.person_id || !form.amount || !form.bank_account_id || !form.sub_category_id) return;
-    addDebt({
-      person_id: form.person_id,
-      bank_account_id: form.bank_account_id,
-      sub_category_id: form.sub_category_id,
-      amount: parseFloat(form.amount),
-      type: activeTab
-    });
-    setForm({ person_id: '', amount: '', bank_account_id: '', sub_category_id: '' });
+    if (!form.person_id || !form.amount) return;
+    if (form.source_type === 'bank' && (!form.bank_account_id || !form.sub_category_id)) return;
+    if (form.source_type === 'savings' && !form.savings_sub_category_id) return;
+
+    if (form.source_type === 'savings') {
+      addDebt({
+        person_id: form.person_id,
+        amount: parseFloat(form.amount),
+        type: activeTab,
+        source_type: 'savings',
+        savings_sub_category_id: form.savings_sub_category_id
+      });
+    } else {
+      addDebt({
+        person_id: form.person_id,
+        bank_account_id: form.bank_account_id,
+        sub_category_id: form.sub_category_id,
+        amount: parseFloat(form.amount),
+        type: activeTab,
+        source_type: 'bank'
+      });
+    }
+    setForm({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
     setModalVisible(false);
   };
 
@@ -47,13 +68,17 @@ export default function UdharScreen() {
   };
 
   const handlePay = () => {
-    if (!payForm.amount || !payForm.bank_account_id) return;
+    if (!payForm.amount) return;
+    const isSavings = selectedDebt?.source_type === 'savings';
+    if (!isSavings && !payForm.bank_account_id) return;
+
     payDebt({
       debt_id: payForm.debt_id,
       amount: parseFloat(payForm.amount),
-      bank_account_id: payForm.bank_account_id
+      ...(isSavings ? {} : { bank_account_id: payForm.bank_account_id })
     });
     setPayForm({ debt_id: '', amount: '', bank_account_id: '' });
+    setSelectedDebt(null);
     setPayModalVisible(false);
   };
 
@@ -92,7 +117,8 @@ export default function UdharScreen() {
             style={styles.card}
             onPress={() => {
               if (debt.status !== 'paid') {
-                setPayForm({ debt_id: debt.id, amount: '', bank_account_id: banks.length > 0 ? banks[0].id : '' });
+                setSelectedDebt(debt);
+                setPayForm({ debt_id: debt.id, amount: '', bank_account_id: (debt.source_type !== 'savings' && banks.length > 0) ? banks[0].id : '' });
                 setPayModalVisible(true);
               }
             }}
@@ -104,6 +130,12 @@ export default function UdharScreen() {
               <View>
                 <Text style={styles.name}>{people.find(p => p.id === debt.person_id)?.name || 'Unknown Person'}</Text>
                 <Text style={styles.date}>{new Date(debt.date || debt.created_at || Date.now()).toLocaleDateString()}</Text>
+                <Text style={{color: '#8A8A9E', fontSize: 12, marginTop: 2}}>
+                  {debt.source_type === 'savings' 
+                    ? `Savings: ${subCategories.find(s => s.id === debt.savings_sub_category_id)?.name || 'Unknown'}`
+                    : `Bank: ${banks.find(b => b.id === debt.bank_account_id)?.name || 'Unknown'}`
+                  }
+                </Text>
               </View>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
@@ -151,23 +183,48 @@ export default function UdharScreen() {
                 onChangeText={(val) => setForm({ ...form, amount: val })}
               />
 
-              <Text style={styles.label}>Bank Account:</Text>
+              <Text style={styles.label}>Source Type:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
-                {banks.map(b => (
-                  <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: b.id})}>
-                    <Text style={[styles.pillText, form.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity style={[styles.pill, form.source_type === 'bank' && styles.activePill]} onPress={() => setForm({...form, source_type: 'bank'})}>
+                  <Text style={[styles.pillText, form.source_type === 'bank' && styles.activePillText]}>Bank Account</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.pill, form.source_type === 'savings' && styles.activePill]} onPress={() => setForm({...form, source_type: 'savings'})}>
+                  <Text style={[styles.pillText, form.source_type === 'savings' && styles.activePillText]}>Savings Goal</Text>
+                </TouchableOpacity>
               </ScrollView>
 
-              <Text style={styles.label}>Category:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
-                {subCategories.map(c => (
-                  <TouchableOpacity key={c.id} style={[styles.pill, form.sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: c.id})}>
-                    <Text style={[styles.pillText, form.sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {form.source_type === 'bank' ? (
+                <>
+                  <Text style={styles.label}>Bank Account:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
+                    {banks.map(b => (
+                      <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: b.id})}>
+                        <Text style={[styles.pillText, form.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  <Text style={styles.label}>Category:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
+                    {subCategories.map(c => (
+                      <TouchableOpacity key={c.id} style={[styles.pill, form.sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: c.id})}>
+                        <Text style={[styles.pillText, form.sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.label}>Savings Goal:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 16}}>
+                    {savingsGoals.map(c => (
+                      <TouchableOpacity key={c.id} style={[styles.pill, form.savings_sub_category_id === c.id && styles.activePill]} onPress={() => setForm({...form, savings_sub_category_id: c.id})}>
+                        <Text style={[styles.pillText, form.savings_sub_category_id === c.id && styles.activePillText]}>{c.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
               
               <View style={styles.buttonRow}>
                 <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
@@ -226,18 +283,22 @@ export default function UdharScreen() {
               autoFocus
             />
             
-            <Text style={{color: '#8A8A9E', marginBottom: 8, fontWeight: '600'}}>Bank Account for transaction:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
-              {banks.map(bank => (
-                <TouchableOpacity 
-                  key={bank.id} 
-                  style={[{backgroundColor: '#2A2A3D', padding: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8}, payForm.bank_account_id === bank.id && {backgroundColor: '#4ADE80'}]}
-                  onPress={() => setPayForm({...payForm, bank_account_id: bank.id})}
-                >
-                  <Text style={[{color: '#8A8A9E', fontWeight: 'bold'}, payForm.bank_account_id === bank.id && {color: '#12121D'}]}>{bank.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {selectedDebt?.source_type !== 'savings' && (
+              <>
+                <Text style={{color: '#8A8A9E', marginBottom: 8, fontWeight: '600'}}>Bank Account for transaction:</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
+                  {banks.map(bank => (
+                    <TouchableOpacity 
+                      key={bank.id} 
+                      style={[{backgroundColor: '#2A2A3D', padding: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8}, payForm.bank_account_id === bank.id && {backgroundColor: '#4ADE80'}]}
+                      onPress={() => setPayForm({...payForm, bank_account_id: bank.id})}
+                    >
+                      <Text style={[{color: '#8A8A9E', fontWeight: 'bold'}, payForm.bank_account_id === bank.id && {color: '#12121D'}]}>{bank.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
             
             <View style={styles.buttonRow}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setPayModalVisible(false)}>

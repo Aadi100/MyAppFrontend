@@ -33,29 +33,26 @@ export default function TabLayout() {
       <Tabs.Screen
         name="savings"
         options={{
-          title: 'Savings',
-          tabBarIcon: ({ color }) => <Ionicons name="wallet" size={24} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="udhar"
         options={{
-          title: 'Udhar',
-          tabBarIcon: ({ color }) => <Ionicons name="people" size={24} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="vault"
         options={{
-          title: 'Vault',
-          tabBarIcon: ({ color }) => <Ionicons name="key" size={24} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="manage"
         options={{
-          title: 'Manage',
-          tabBarIcon: ({ color }) => <Ionicons name="settings" size={24} color={color} />,
+          title: 'Menu',
+          tabBarIcon: ({ color }) => <Ionicons name="grid" size={24} color={color} />,
         }}
       />
       <Tabs.Screen

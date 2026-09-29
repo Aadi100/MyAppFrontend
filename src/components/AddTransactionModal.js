@@ -53,6 +53,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState('date');
+  const [allocations, setAllocations] = useState([]);
 
   const banks = useStore((state) => state.banks);
   const subCategories = useStore((state) => state.subCategories);
@@ -78,6 +79,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
       setSelectedSubCatId('');
       setType('debit');
       setDate(new Date());
+      setAllocations([]);
       if (banks.length > 0) {
         setSelectedBankId(banks[0].id);
       }
@@ -107,6 +109,23 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
       }
     }
     
+    const validAllocations = allocations.filter(a => a.sub_category_id && parseFloat(a.amount) > 0);
+    const expense_allocations = [];
+    const savings_allocations = [];
+
+    validAllocations.forEach(alloc => {
+      const amt = parseFloat(alloc.amount);
+      const sub = subCategories.find(s => s.id === alloc.sub_category_id);
+      const master = masterCategories.find(m => m.id === sub?.master_category_id);
+      if (master?.type === 'savings') {
+        savings_allocations.push({ sub_category_id: alloc.sub_category_id, amount: amt });
+      } else {
+        expense_allocations.push({ sub_category_id: alloc.sub_category_id, amount: amt });
+      }
+    });
+
+    const for_month = date.toISOString().slice(0, 7);
+    
     if (editingTransaction) {
       updateExpense({
         id: editingTransaction.id,
@@ -119,18 +138,22 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
         date: date.toISOString(),
       });
     } else if (master?.type === 'income') {
-      receiveIncome({
+      const payload = {
         amount: parseFloat(amount),
         reason: reason,
         bank_account_id: selectedBankId,
         income_sub_category_id: selectedSubCatId,
-        for_month: date.toISOString().slice(0, 7),
+        for_month: for_month,
         note: note || '',
         date: date.toISOString(),
-      });
+      };
+      if (expense_allocations.length > 0) payload.expense_allocations = expense_allocations;
+      if (savings_allocations.length > 0) payload.savings_allocations = savings_allocations;
+      
+      receiveIncome(payload);
     } else {
       // Either expense or savings
-      addExpense({
+      const payload = {
         type: type,
         amount: parseFloat(amount),
         reason: reason,
@@ -138,7 +161,12 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
         sub_category_id: selectedSubCatId,
         note: note || '',
         date: date.toISOString(),
-      });
+        for_month: for_month,
+      };
+      if (expense_allocations.length > 0) payload.expense_allocations = expense_allocations;
+      if (savings_allocations.length > 0) payload.savings_allocations = savings_allocations;
+      
+      addExpense(payload);
     }
     
     onClose();
@@ -155,6 +183,11 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
     return type === 'debit' 
       ? (master.type === 'expense' || master.type === 'savings') 
       : (master.type === 'income' || master.type === 'savings' || master.type === 'expense');
+  });
+
+  const expenseAndSavingsCategories = subCategories.filter(sub => {
+    const master = masterCategories.find(mc => mc.id === sub.master_category_id);
+    return master && (master.type === 'expense' || master.type === 'savings');
   });
 
   const selectedSub = subCategories.find(s => s.id === selectedSubCatId);
@@ -200,9 +233,12 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
                     mode={pickerMode}
                     is24Hour={true}
                     display="default"
-                    onChange={(event, selectedDate) => {
+                    onValueChange={(selectedDate) => {
                       setShowPicker(Platform.OS === 'ios');
                       if (selectedDate) setDate(selectedDate);
+                    }}
+                    onDismiss={() => {
+                      setShowPicker(false);
                     }}
                   />
                 )}
@@ -257,16 +293,54 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
                 />
 
                 {type === 'credit' && !editingTransaction && !isSavingsCategory && (
-                   <TouchableOpacity 
-                     style={{ backgroundColor: 'rgba(74, 222, 128, 0.1)', padding: 16, borderRadius: 12, marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
-                     onPress={() => {
-                        onClose();
-                        router.push('/payday');
-                     }}
-                   >
-                     <Ionicons name="pie-chart" size={20} color="#4ADE80" style={{marginRight: 8}} />
-                     <Text style={{ color: '#4ADE80', fontWeight: 'bold', fontSize: 16 }}>Advanced Budget Allocation</Text>
-                   </TouchableOpacity>
+                   <View style={styles.allocationsContainer}>
+                     <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>Add to Category Budgets</Text>
+                     <Text style={{ color: '#8A8A9E', fontSize: 12, marginBottom: 12 }}>Allocations will be added on top of existing budgets.</Text>
+                     
+                     {allocations.map((alloc, index) => (
+                       <View key={alloc.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 12, marginBottom: 12 }}>
+                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                           <Text style={{ color: '#8A8A9E', fontWeight: 'bold' }}>Allocation #{index + 1}</Text>
+                           <TouchableOpacity onPress={() => setAllocations(allocations.filter(a => a.id !== alloc.id))}>
+                             <Ionicons name="trash-outline" size={20} color="#F87171" />
+                           </TouchableOpacity>
+                         </View>
+                         <Dropdown 
+                           label="Category to Fund" 
+                           items={expenseAndSavingsCategories} 
+                           selectedId={alloc.sub_category_id} 
+                           onSelect={(id) => {
+                             const newAllocations = [...allocations];
+                             newAllocations[index].sub_category_id = id;
+                             setAllocations(newAllocations);
+                           }} 
+                           placeholder="Select category" 
+                         />
+                         <TextInput
+                           style={styles.input}
+                           placeholder="Amount to add (e.g. 100)"
+                           placeholderTextColor="#8A8A9E"
+                           keyboardType="decimal-pad"
+                           value={alloc.amount}
+                           onChangeText={(val) => {
+                             const newAllocations = [...allocations];
+                             newAllocations[index].amount = val;
+                             setAllocations(newAllocations);
+                           }}
+                         />
+                       </View>
+                     ))}
+
+                     <TouchableOpacity 
+                       style={{ backgroundColor: 'rgba(74, 222, 128, 0.1)', padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                       onPress={() => {
+                          setAllocations([...allocations, { id: Date.now().toString() + Math.random(), sub_category_id: '', amount: '' }]);
+                       }}
+                     >
+                       <Ionicons name="add-circle-outline" size={20} color="#4ADE80" style={{marginRight: 8}} />
+                       <Text style={{ color: '#4ADE80', fontWeight: 'bold', fontSize: 16 }}>Add Allocation</Text>
+                     </TouchableOpacity>
+                   </View>
                 )}
           </ScrollView>
           

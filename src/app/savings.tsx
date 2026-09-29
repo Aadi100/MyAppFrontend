@@ -10,6 +10,7 @@ export default function SavingsScreen() {
   const banks = useStore((state) => state.banks);
   const addSubCategory = useStore((state) => state.addSubCategory);
   const addExpense = useStore((state) => state.addExpense);
+  const dashboardSummary = useStore((state) => state.dashboardSummary);
   
   const savings = subCategories.filter(sub => {
     const master = masterCategories.find(mc => mc.id === sub.master_category_id);
@@ -86,10 +87,19 @@ export default function SavingsScreen() {
           </View>
         )}
         
-        {savings.map((goal) => {
+        {(() => {
+          const savingsProgressArray = dashboardSummary?.savings_progress || [];
+          return savings.map((goal) => {
+            // If dashboardSummary has enriched data, use it, otherwise fallback to goal properties
+            const enrichedGoal = savingsProgressArray.find(s => s.sub_category_id === goal.id) || goal;
+
+          
           const target = goal.assigned_budget || 0;
-          const current = goal.current_saved || 0;
-          const progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+          const current = enrichedGoal.current_saved || goal.current_saved || 0;
+          const lentOut = enrichedGoal.lent_out || goal.lent_out || 0;
+          const totalVal = enrichedGoal.total_value !== undefined ? enrichedGoal.total_value : (current + lentOut);
+
+          const progress = target > 0 ? Math.min((totalVal / target) * 100, 100) : 0;
           const isComplete = progress >= 100 && target > 0;
           return (
             <TouchableOpacity 
@@ -113,9 +123,16 @@ export default function SavingsScreen() {
                   <Text style={styles.cardTitle}>{goal.name}</Text>
                   <Text style={styles.progressText}>{progress.toFixed(0)}% Complete</Text>
                 </View>
-                <Text style={styles.amount}>
-                  Rs {current.toLocaleString()} / <Text style={styles.targetAmount}>Rs {target.toLocaleString()}</Text>
-                </Text>
+                <View style={{alignItems: 'flex-end'}}>
+                  <Text style={styles.amount}>
+                    Rs {totalVal.toLocaleString()} / <Text style={styles.targetAmount}>Rs {target.toLocaleString()}</Text>
+                  </Text>
+                  {lentOut > 0 && (
+                    <Text style={{color: '#60A5FA', fontSize: 10, marginTop: 4}}>
+                      Rs {current.toLocaleString()} available + Rs {lentOut.toLocaleString()} lent
+                    </Text>
+                  )}
+                </View>
               </View>
               <View style={styles.progressBarBackground}>
                 <LinearGradient 
@@ -126,7 +143,8 @@ export default function SavingsScreen() {
               </View>
             </TouchableOpacity>
           );
-        })}
+          });
+        })()}
       </ScrollView>
 
       {/* Floating Action Button */}

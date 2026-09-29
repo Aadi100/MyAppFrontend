@@ -72,6 +72,28 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  fetchBankSummary: async (bankAccountId, month) => {
+    try {
+      let url = `/get-bank-summary?bank_account_id=${bankAccountId}`;
+      if (month) url += `&month=${month}`;
+      return await apiFetch(url);
+    } catch (e) {
+      console.error('Failed to fetch bank summary:', e);
+      throw e;
+    }
+  },
+
+  fetchBankComparison: async (month) => {
+    try {
+      let url = '/get-bank-comparison';
+      if (month) url += `?month=${month}`;
+      return await apiFetch(url);
+    } catch (e) {
+      console.error('Failed to fetch bank comparison:', e);
+      throw e;
+    }
+  },
+
   setMonthlyBudget: async (payload) => {
     try {
       await apiFetch('/set-monthly-budget', {

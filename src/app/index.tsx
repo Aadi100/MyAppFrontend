@@ -147,12 +147,20 @@ export default function Dashboard() {
             <Text style={styles.sectionTitle}>Savings Progress</Text>
             <View style={styles.progressCard}>
               {dashboardSummary.savings_progress.map((sub, idx) => {
-                const perc = Math.min((sub.current_saved / (sub.target_amount || 1)) * 100, 100);
+                const val = sub.total_value !== undefined ? sub.total_value : sub.current_saved;
+                const perc = Math.min((val / (sub.target_amount || 1)) * 100, 100);
                 return (
                   <View key={idx} style={styles.progressRow}>
                     <View style={styles.progressHeader}>
                       <Text style={styles.progressName}>{sub.name}</Text>
-                      <Text style={styles.progressAmounts}>{fmt(sub.current_saved)} / {fmt(sub.target_amount)}</Text>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={styles.progressAmounts}>{fmt(val)} / {fmt(sub.target_amount)}</Text>
+                        {sub.lent_out > 0 && (
+                          <Text style={{color: '#60A5FA', fontSize: 10, marginTop: 2}}>
+                            {fmt(sub.current_saved)} available + {fmt(sub.lent_out)} lent
+                          </Text>
+                        )}
+                      </View>
                     </View>
                     <View style={styles.progressBarBg}>
                       <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: '#FBBF24' }]} />
