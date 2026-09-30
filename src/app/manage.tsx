@@ -107,39 +107,7 @@ export default function ManageScreen() {
 
   const importTransactionsPDF = useStore(state => state.importTransactionsPDF);
 
-  const handleImportData = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const pickedFile = result.assets[0];
-        const isPdf = pickedFile.name.toLowerCase().endsWith('.pdf') || pickedFile.mimeType === 'application/pdf';
-
-        if (isPdf) {
-          const res = await importTransactionsPDF(pickedFile);
-          Alert.alert('Import Success', `Imported: ${res.imported}\nFailed: ${res.failed_count}`);
-        } else {
-          const fileUri = pickedFile.uri;
-          const response = await fetch(fileUri);
-          const fileContent = await response.text();
-          
-          if (!fileContent.trim()) {
-            Alert.alert('Empty File', 'The selected CSV file is empty.');
-            return;
-          }
-
-          const res = await importTransactions(fileContent);
-          Alert.alert('Import Success', `Imported: ${res.imported}\nFailed: ${res.failed_count}`);
-        }
-      }
-    } catch (error) {
-      console.error('Import error:', error);
-      Alert.alert('Import Failed', error instanceof Error ? error.message : 'Failed to import file. Please try again.');
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -177,6 +145,12 @@ export default function ManageScreen() {
               <Ionicons name="person" size={28} color="#fff" />
             </LinearGradient>
             <Text style={styles.menuGridText}>Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/notes')}>
+            <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
+              <Ionicons name="document-text" size={28} color="#fff" />
+            </LinearGradient>
+            <Text style={styles.menuGridText}>Notes</Text>
           </TouchableOpacity>
         </View>
 
@@ -322,29 +296,7 @@ export default function ManageScreen() {
           </View>
         </View>
 
-        {/* Data Management Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="cloud-upload" size={20} color="#8B5CF6" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitle}>Data Management</Text>
-            </View>
-          </View>
-          <View style={styles.card}>
-            <TouchableOpacity style={[styles.listItem, { borderBottomWidth: 0 }]} onPress={handleImportData}>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <View style={[styles.iconBtn, { backgroundColor: 'rgba(139,92,246,0.1)', padding: 12, marginRight: 16, borderRadius: 16 }]}>
-                  <Ionicons name="document-text" size={24} color="#8B5CF6" />
-                </View>
-                <View>
-                  <Text style={styles.itemText}>Import Transactions</Text>
-                  <Text style={{color: '#64748B', fontSize: 13, marginTop: 4}}>Upload CSV or Bank PDF</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-        </View>
+
 
 
         <View style={{height: 40}} />

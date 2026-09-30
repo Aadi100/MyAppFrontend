@@ -114,7 +114,7 @@ export default function TransactionsScreen() {
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={[styles.groupTotal, grouped[key].total < 0 ? { color: '#F87171' } : { color: '#4ADE80' }]}>
-                  {grouped[key].total >= 0 ? '+' : '-'}{fmt(grouped[key].total)}
+                  {grouped[key].total > 0 ? '+' : ''}{fmt(grouped[key].total)}
                 </Text>
                 <Ionicons name={expandedGroups[key] ? 'chevron-up' : 'chevron-down'} size={20} color="#64748B" style={{ marginLeft: 8 }} />
               </View>
@@ -128,8 +128,8 @@ export default function TransactionsScreen() {
                   return (
                     <View key={expense.id} style={[styles.transactionCard, idx === grouped[key].transactions.length - 1 && {borderBottomWidth: 0}]}>
                       <View style={styles.tLeft}>
-                        <View style={[styles.iconCircle, isCredit && { backgroundColor: 'rgba(74, 222, 128, 0.1)' }]}>
-                          <Ionicons name={renderIcon(catName)} size={20} color={isCredit ? '#4ADE80' : '#A78BFA'} />
+                        <View style={[styles.iconCircle, isCredit && { backgroundColor: 'rgba(52, 211, 153, 0.1)' }]}>
+                          <Ionicons name={renderIcon(catName)} size={20} color={isCredit ? '#34D399' : '#E2E8F0'} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.tTitle}>{expense.reason || catName}</Text>
@@ -139,7 +139,7 @@ export default function TransactionsScreen() {
                       </View>
                       <View style={{ alignItems: 'flex-end', marginLeft: 10 }}>
                         <Text style={[styles.tAmountExpense, isCredit && { color: '#4ADE80' }]}>
-                          {isCredit ? '+' : '-'}{fmt(expense.amount)}
+                          {isCredit ? '+' : ''}{fmt(expense.amount)}
                         </Text>
                         <View style={{ flexDirection: 'row', marginTop: 10 }}>
                           <TouchableOpacity onPress={() => handleEditTransaction(expense)} style={styles.actionBtn}>

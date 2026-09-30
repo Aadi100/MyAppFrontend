@@ -112,19 +112,19 @@ export default function Dashboard() {
         <View style={styles.mainCardWrapper}>
           <LinearGradient colors={['#0F172A', '#1E293B']} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={styles.mainCard}>
             <LinearGradient colors={['rgba(74,222,128,0.15)', 'transparent']} start={{x: 0.5, y: 0}} end={{x: 0.5, y: 1}} style={styles.cardGlow} />
-            <Text style={styles.mainCardLabel}>Total Assets</Text>
-            <Text style={styles.mainCardAmount}>{fmt(totalPosition)}</Text>
+            <Text style={styles.mainCardLabel}>Net Worth</Text>
+            <Text style={styles.mainCardAmount}>{fmt(netWorth)}</Text>
             
             <View style={styles.mainCardDivider} />
             
             <View style={styles.mainCardStats}>
               <View style={styles.statCol}>
-                <Text style={styles.mainCardSubLabel}>Net Worth</Text>
-                <Text style={styles.mainCardSubAmount}>{fmt(netWorth)}</Text>
-              </View>
-              <View style={styles.statColCenter}>
                 <Text style={styles.mainCardSubLabel}>Bank Balances</Text>
                 <Text style={styles.mainCardSubAmount}>{fmt(totalBalance)}</Text>
+              </View>
+              <View style={styles.statColCenter}>
+                <Text style={styles.mainCardSubLabel}>Savings</Text>
+                <Text style={styles.mainCardSubAmount}>{fmt(savings)}</Text>
               </View>
               <View style={styles.statColRight}>
                 <Text style={styles.mainCardSubLabel}>Overspend</Text>
@@ -186,14 +186,24 @@ export default function Dashboard() {
             <Text style={styles.sectionTitle}>Budget Progress</Text>
             <View style={styles.listCard}>
               {dashboardSummary.spent_per_expense_category.map((sub, idx) => {
-                const perc = Math.min((sub.spent / (sub.assigned_budget || 1)) * 100, 100);
+                let perc = 0;
+                if (sub.effective_budget > 0) {
+                  perc = Math.min((sub.spent / sub.effective_budget) * 100, 100);
+                } else if (sub.effective_budget < 0 || sub.spent > 0) {
+                  perc = 100; // Over budget or in deficit
+                } else {
+                  perc = 0; // 0 budget, 0 spent
+                }
                 const isOver = sub.remaining < 0;
                 return (
                   <View key={idx} style={[styles.listRow, idx === dashboardSummary.spent_per_expense_category.length - 1 && {borderBottomWidth: 0}]}>
                     <View style={styles.progressHeader}>
                       <View>
                         <Text style={styles.progressName}>{sub.name}</Text>
-                        <Text style={styles.progressAmounts}>{fmt(sub.spent)} / {fmt(sub.assigned_budget)}</Text>
+                        <Text style={styles.progressAmounts}>
+                          {fmt(sub.spent)} / {fmt(sub.effective_budget)} 
+                          <Text style={{ fontSize: 10, color: '#94A3B8' }}> (Assigned: {fmt(sub.assigned_budget)})</Text>
+                        </Text>
                       </View>
                       <View style={{alignItems: 'flex-end'}}>
                         <Text style={[styles.progressStatus, { color: isOver ? '#F87171' : '#4ADE80' }]}>
@@ -205,7 +215,7 @@ export default function Dashboard() {
                       </View>
                     </View>
                     <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: perc > 90 ? '#F87171' : '#4ADE80' }]} />
+                      <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: isOver || perc > 90 ? '#F87171' : '#4ADE80' }]} />
                     </View>
                   </View>
                 );
@@ -271,7 +281,7 @@ export default function Dashboard() {
                     </View>
                   </View>
                   <Text style={[styles.tAmountExpense, expense.type === 'credit' && { color: '#4ADE80' }]}>
-                    {expense.type === 'credit' ? '+' : '-'}{fmt(expense.amount)}
+                    {expense.type === 'credit' ? '+' : ''}{fmt(expense.amount)}
                   </Text>
                 </View>
               ))

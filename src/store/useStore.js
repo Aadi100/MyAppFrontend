@@ -39,6 +39,7 @@ export const useStore = create((set, get) => ({
   dashboardSummary: null,
   monthlyBudgets: [],
   peopleSummary: [],
+  notes: [],
   
   fetchData: async () => {
     try {
@@ -640,5 +641,49 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  fetchNotes: async () => {
+    try {
+      const data = await apiFetch('/get-notes');
+      set({ notes: data || [] });
+    } catch (e) {
+      console.error('Failed to fetch notes:', e);
+    }
+  },
+  
+  createNote: async (note) => {
+    try {
+      await apiFetch('/create-note', {
+        method: 'POST',
+        body: JSON.stringify(note),
+      });
+      get().fetchNotes();
+    } catch (e) {
+      console.error('Failed to create note:', e);
+    }
+  },
+
+  updateNote: async (note) => {
+    try {
+      await apiFetch('/update-note', {
+        method: 'PUT',
+        body: JSON.stringify(note),
+      });
+      get().fetchNotes();
+    } catch (e) {
+      console.error('Failed to update note:', e);
+    }
+  },
+
+  deleteNote: async (id) => {
+    try {
+      await apiFetch('/delete-note', {
+        method: 'DELETE',
+        body: JSON.stringify({ id }),
+      });
+      get().fetchNotes();
+    } catch (e) {
+      console.error('Failed to delete note:', e);
+    }
+  },
 
 }));

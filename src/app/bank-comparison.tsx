@@ -77,7 +77,12 @@ export default function BankComparisonScreen() {
               onPress={() => router.push(`/bank-summary?id=${bank.id}`)}
             >
               <View style={styles.cardHeader}>
-                <Text style={styles.bankName}>{bank.name}</Text>
+                <View>
+                  <Text style={styles.bankName}>{bank.name}</Text>
+                  {bank.overspend_this_month > 0 && (
+                    <Text style={{ color: '#F87171', fontSize: 12, marginTop: 4 }}>Overspent: {fmt(bank.overspend_this_month)}</Text>
+                  )}
+                </View>
                 <Text style={[styles.bankBalance, { color: bank.balance >= 0 ? '#4ADE80' : '#F87171' }]}>
                   {fmt(bank.balance)}
                 </Text>
@@ -85,22 +90,52 @@ export default function BankComparisonScreen() {
               
               <View style={styles.statsRow}>
                 <View style={styles.statBox}>
-                  <Text style={styles.statLabel}>Credited ({month})</Text>
+                  <Text style={styles.statLabel}>In ({month})</Text>
                   <Text style={[styles.statValue, { color: '#4ADE80' }]}>+{fmt(bank.credited_this_month)}</Text>
                 </View>
                 <View style={styles.statBox}>
-                  <Text style={styles.statLabel}>Debited ({month})</Text>
-                  <Text style={[styles.statValue, { color: '#F87171' }]}>-{fmt(bank.debited_this_month)}</Text>
+                  <Text style={styles.statLabel}>Out ({month})</Text>
+                  <Text style={[styles.statValue, { color: '#F87171' }]}>{fmt(bank.debited_this_month)}</Text>
+                </View>
+                <View style={[styles.statBox, { marginRight: 0 }]}>
+                  <Text style={styles.statLabel}>Net</Text>
+                  <Text style={[styles.statValue, { color: bank.net_this_month >= 0 ? '#4ADE80' : '#F87171' }]}>
+                    {bank.net_this_month >= 0 ? '+' : ''}{fmt(bank.net_this_month)}
+                  </Text>
                 </View>
               </View>
 
               {bank.category_spend?.length > 0 && (
                 <View style={styles.spendSection}>
-                  <Text style={styles.spendTitle}>Top Spend Categories</Text>
+                  <Text style={styles.spendTitle}>Top Spend</Text>
                   {bank.category_spend.slice(0, 3).map((spend, idx) => (
                     <View key={idx} style={styles.spendRow}>
                       <Text style={styles.spendName}>{spend.name}</Text>
                       <Text style={styles.spendAmount}>{fmt(spend.spent)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {bank.category_income?.length > 0 && (
+                <View style={styles.spendSection}>
+                  <Text style={styles.spendTitle}>Top Income</Text>
+                  {bank.category_income.slice(0, 2).map((income, idx) => (
+                    <View key={idx} style={styles.spendRow}>
+                      <Text style={styles.spendName}>{income.name}</Text>
+                      <Text style={[styles.spendAmount, { color: '#4ADE80' }]}>+{fmt(income.received)}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {bank.category_savings?.length > 0 && (
+                <View style={styles.spendSection}>
+                  <Text style={styles.spendTitle}>Savings</Text>
+                  {bank.category_savings.slice(0, 2).map((saving, idx) => (
+                    <View key={idx} style={styles.spendRow}>
+                      <Text style={styles.spendName}>{saving.name}</Text>
+                      <Text style={[styles.spendAmount, { color: '#FBBF24' }]}>{fmt(saving.current_saved)} / {fmt(saving.target_amount)}</Text>
                     </View>
                   ))}
                 </View>
