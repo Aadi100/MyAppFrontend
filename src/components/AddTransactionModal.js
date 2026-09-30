@@ -65,6 +65,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
 
   React.useEffect(() => {
     if (visible && editingTransaction) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setType(editingTransaction.type || 'debit');
       setAmount(editingTransaction.amount ? String(editingTransaction.amount) : '');
       setReason(editingTransaction.reason || '');
@@ -124,7 +125,8 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
       }
     });
 
-    const for_month = date.toISOString().slice(0, 7);
+    const validDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+    const for_month = validDate.toISOString().slice(0, 7);
     
     if (editingTransaction) {
       updateExpense({
@@ -135,7 +137,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
         bank_account_id: selectedBankId,
         sub_category_id: selectedSubCatId,
         note: note || '',
-        date: date.toISOString(),
+        date: validDate.toISOString(),
       });
     } else if (master?.type === 'income') {
       const payload = {
@@ -145,7 +147,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
         income_sub_category_id: selectedSubCatId,
         for_month: for_month,
         note: note || '',
-        date: date.toISOString(),
+        date: validDate.toISOString(),
       };
       if (expense_allocations.length > 0) payload.expense_allocations = expense_allocations;
       if (savings_allocations.length > 0) payload.savings_allocations = savings_allocations;
@@ -160,7 +162,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
         bank_account_id: selectedBankId,
         sub_category_id: selectedSubCatId,
         note: note || '',
-        date: date.toISOString(),
+        date: validDate.toISOString(),
         for_month: for_month,
       };
       if (expense_allocations.length > 0) payload.expense_allocations = expense_allocations;
@@ -196,6 +198,8 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const debitLabel = isSavingsCategory ? "Add to Goal" : "Money Out (Debit)";
   const creditLabel = isSavingsCategory ? "Use from Goal" : "Money In (Credit)";
 
+  const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContainer}>
@@ -219,26 +223,25 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
                 <View style={styles.datePickerRow}>
                   <TouchableOpacity style={styles.datePickerBtn} onPress={() => showMode('date')}>
                     <Ionicons name="calendar-outline" size={20} color="#8A8A9E" style={{marginRight: 8}} />
-                    <Text style={styles.datePickerText}>{date.toLocaleDateString()}</Text>
+                    <Text style={styles.datePickerText}>{safeDate.toLocaleDateString()}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.datePickerBtn} onPress={() => showMode('time')}>
                     <Ionicons name="time-outline" size={20} color="#8A8A9E" style={{marginRight: 8}} />
-                    <Text style={styles.datePickerText}>{date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                    <Text style={styles.datePickerText}>{safeDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                   </TouchableOpacity>
                 </View>
 
                 {showPicker && (
                   <DateTimePicker
-                    value={date}
+                    value={safeDate}
                     mode={pickerMode}
                     is24Hour={true}
                     display="default"
-                    onValueChange={(selectedDate) => {
+                    onChange={(event, selectedDate) => {
                       setShowPicker(Platform.OS === 'ios');
-                      if (selectedDate) setDate(selectedDate);
-                    }}
-                    onDismiss={() => {
-                      setShowPicker(false);
+                      if (event?.type !== 'dismissed' && selectedDate) {
+                        setDate(selectedDate);
+                      }
                     }}
                   />
                 )}

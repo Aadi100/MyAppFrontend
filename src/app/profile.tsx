@@ -17,6 +17,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (profile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(profile.name || '');
       setEmail(profile.email || '');
       setPhone(profile.phone || '');

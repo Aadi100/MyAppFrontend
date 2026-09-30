@@ -26,12 +26,6 @@ export default function MapScreen() {
   const [addFriendModal, setAddFriendModal] = useState(false);
   const [addEmail, setAddEmail] = useState('');
 
-  // Initial load
-  useEffect(() => {
-    fetchFriendsList();
-    loadMyLocation();
-  }, []);
-
   const loadMyLocation = async () => {
     const loc = await fetchMyLocation();
     if (loc) {
@@ -40,15 +34,22 @@ export default function MapScreen() {
     }
   };
 
-  const loadPath = async (userId, date) => {
+  const loadPath = async (userId: string | undefined, date: string) => {
     if (!userId) return;
     const path = await fetchDailyPath(userId, date);
     setDailyPath(path || []);
   };
 
+  // Initial load
+  useEffect(() => {
+    fetchFriendsList();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadMyLocation();
+  }, []);
+
   // Polling friend location if selected
   useEffect(() => {
-    let interval;
+    let interval: any;
     if (activeFriendId) {
       const pollFriend = async () => {
         const loc = await fetchFriendLocation(activeFriendId);
@@ -65,6 +66,7 @@ export default function MapScreen() {
         setFriendLocation(loc);
       }, 30000); // 30s polling
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFriendLocation(null);
       if (profile) loadPath(profile.id, new Date().toISOString().split('T')[0]);
     }
@@ -255,7 +257,7 @@ export default function MapScreen() {
                 <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.label}>Friend's Email</Text>
+            <Text style={styles.label}>Friend&apos;s Email</Text>
             <TextInput 
               style={styles.input} 
               placeholder="friend@example.com" 

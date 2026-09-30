@@ -337,17 +337,6 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  addDebt: async (debtData) => {
-    try {
-      await apiFetch('/create-debt', {
-        method: 'POST',
-        body: JSON.stringify(debtData),
-      });
-      get().fetchData();
-    } catch (e) {
-      console.error('Failed to add debt:', e);
-    }
-  },
 
   addBank: async (bankData) => {
     try {

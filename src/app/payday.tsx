@@ -101,7 +101,7 @@ export default function PaydayScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.headerCard} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-          <Text style={styles.label}>Enter This Month's Salary</Text>
+          <Text style={styles.label}>Enter This Month&apos;s Salary</Text>
           <View style={styles.inputWrapper}>
             <Text style={styles.currencySymbol}>Rs</Text>
             <TextInput

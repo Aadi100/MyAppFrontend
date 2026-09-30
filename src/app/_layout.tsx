@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import * as Location from 'expo-location';
+import * as Updates from 'expo-updates';
 import { useStore } from '../store/useStore';
 
 export default function TabLayout() {
@@ -9,7 +10,23 @@ export default function TabLayout() {
   const accessToken = useStore((state) => state.accessToken);
 
   useEffect(() => {
-    let intervalId;
+    async function checkForUpdates() {
+      if (__DEV__) return;
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (error) {
+        console.log('Error checking for updates:', error);
+      }
+    }
+    checkForUpdates();
+  }, []);
+
+  useEffect(() => {
+    let intervalId: any;
     
     const startPinging = async () => {
       if (!accessToken) return;

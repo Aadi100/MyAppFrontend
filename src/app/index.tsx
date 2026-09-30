@@ -57,15 +57,26 @@ export default function Dashboard() {
   };
 
   const handlePrevMonth = () => {
-    const d = new Date(`${currentMonth}-01`);
-    d.setMonth(d.getMonth() - 1);
-    setCurrentMonth(d.toISOString().slice(0, 7));
+    const [y, m] = currentMonth.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 2, 1);
+    const newY = d.getFullYear();
+    const newM = String(d.getMonth() + 1).padStart(2, '0');
+    setCurrentMonth(`${newY}-${newM}`);
   };
 
   const handleNextMonth = () => {
-    const d = new Date(`${currentMonth}-01`);
-    d.setMonth(d.getMonth() + 1);
-    setCurrentMonth(d.toISOString().slice(0, 7));
+    const [y, m] = currentMonth.split('-').map(Number);
+    const d = new Date(y, m || 1, 1);
+    const newY = d.getFullYear();
+    const newM = String(d.getMonth() + 1).padStart(2, '0');
+    setCurrentMonth(`${newY}-${newM}`);
+  };
+
+  const formatMonthDisplay = (monthStr) => {
+    if (!monthStr) return '';
+    const [y, m] = monthStr.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    return isNaN(d.getTime()) ? monthStr : d.toLocaleString('default', { month: 'long', year: 'numeric' });
   };
 
   return (
@@ -90,7 +101,7 @@ export default function Dashboard() {
             <Ionicons name="chevron-back" size={20} color="#8A8A9E" />
           </TouchableOpacity>
           <Text style={styles.monthText}>
-            {new Date(`${currentMonth}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}
+            {formatMonthDisplay(currentMonth)}
           </Text>
           <TouchableOpacity onPress={handleNextMonth} style={styles.monthBtn}>
             <Ionicons name="chevron-forward" size={20} color="#8A8A9E" />

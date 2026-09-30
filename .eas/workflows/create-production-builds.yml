@@ -1,4 +1,4 @@
-name: Create Production Builds
+name: Create Production Builds & OTA Updates
 
 on:
   push:
@@ -7,7 +7,15 @@ on:
       - main
 
 jobs:
+  publish_update:
+    type: update
+    params:
+      branch: production
+      message: Auto update from GitHub push
+
   build_android:
-    type: build # This job type creates a production build for Android
+    type: build
     params:
       platform: android
+      profile: production
+

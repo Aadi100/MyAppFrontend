@@ -250,11 +250,21 @@ export default function ManageScreen() {
           
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <TouchableOpacity onPress={() => {
-              const d = new Date(`${budgetMonth}-01`); d.setMonth(d.getMonth() - 1); setBudgetMonth(d.toISOString().slice(0, 7));
+              const [y, m] = budgetMonth.split('-').map(Number);
+              const d = new Date(y, (m || 1) - 2, 1);
+              setBudgetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
             }} style={{ padding: 8 }}><Ionicons name="chevron-back" size={20} color="#8A8A9E" /></TouchableOpacity>
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{new Date(`${budgetMonth}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
+              {(() => {
+                const [y, m] = budgetMonth.split('-').map(Number);
+                const d = new Date(y, (m || 1) - 1, 1);
+                return isNaN(d.getTime()) ? budgetMonth : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+              })()}
+            </Text>
             <TouchableOpacity onPress={() => {
-              const d = new Date(`${budgetMonth}-01`); d.setMonth(d.getMonth() + 1); setBudgetMonth(d.toISOString().slice(0, 7));
+              const [y, m] = budgetMonth.split('-').map(Number);
+              const d = new Date(y, m || 1, 1);
+              setBudgetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
             }} style={{ padding: 8 }}><Ionicons name="chevron-forward" size={20} color="#8A8A9E" /></TouchableOpacity>
           </View>
 

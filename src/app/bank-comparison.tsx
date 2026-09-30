@@ -11,10 +11,6 @@ export default function BankComparisonScreen() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const fetchBankComparison = useStore(state => state.fetchBankComparison);
 
-  useEffect(() => {
-    loadComparison();
-  }, [month]);
-
   const loadComparison = async () => {
     setLoading(true);
     try {
@@ -26,6 +22,11 @@ export default function BankComparisonScreen() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadComparison();
+  }, [month]);
 
   const fmt = (num) => `Rs ${(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -41,11 +42,21 @@ export default function BankComparisonScreen() {
 
       <View style={styles.monthSelector}>
         <TouchableOpacity onPress={() => {
-          const d = new Date(`${month}-01`); d.setMonth(d.getMonth() - 1); setMonth(d.toISOString().slice(0, 7));
+          const [y, m] = month.split('-').map(Number);
+          const d = new Date(y, (m || 1) - 2, 1);
+          setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
         }} style={styles.monthBtn}><Ionicons name="chevron-back" size={20} color="#8A8A9E" /></TouchableOpacity>
-        <Text style={styles.monthText}>{new Date(`${month}-01`).toLocaleString('default', { month: 'long', year: 'numeric' })}</Text>
+        <Text style={styles.monthText}>
+          {(() => {
+            const [y, m] = month.split('-').map(Number);
+            const d = new Date(y, (m || 1) - 1, 1);
+            return isNaN(d.getTime()) ? month : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+          })()}
+        </Text>
         <TouchableOpacity onPress={() => {
-          const d = new Date(`${month}-01`); d.setMonth(d.getMonth() + 1); setMonth(d.toISOString().slice(0, 7));
+          const [y, m] = month.split('-').map(Number);
+          const d = new Date(y, m || 1, 1);
+          setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
         }} style={styles.monthBtn}><Ionicons name="chevron-forward" size={20} color="#8A8A9E" /></TouchableOpacity>
       </View>
 
