@@ -1,12 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
-import * as Location from 'expo-location';
+
 import * as Updates from 'expo-updates';
 import { useStore } from '../store/useStore';
 
 export default function TabLayout() {
-  const pingLocation = useStore((state) => state.pingLocation);
   const accessToken = useStore((state) => state.accessToken);
 
   useEffect(() => {
@@ -25,40 +24,6 @@ export default function TabLayout() {
     checkForUpdates();
   }, []);
 
-  useEffect(() => {
-    let intervalId: any;
-    
-    const startPinging = async () => {
-      if (!accessToken) return;
-      
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-
-      // Ping immediately
-      try {
-        const loc = await Location.getCurrentPositionAsync({});
-        pingLocation(loc.coords.latitude, loc.coords.longitude);
-      } catch (e) {
-        console.error('Initial location ping failed', e);
-      }
-
-      // Ping every 5 minutes
-      intervalId = setInterval(async () => {
-        try {
-          const loc = await Location.getCurrentPositionAsync({});
-          pingLocation(loc.coords.latitude, loc.coords.longitude);
-        } catch (e) {
-          console.error('Location ping failed', e);
-        }
-      }, 5 * 60 * 1000);
-    };
-
-    startPinging();
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [accessToken]);
 
   return (
     <Tabs
@@ -89,13 +54,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="list" size={24} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color }) => <Ionicons name="map" size={24} color={color} />,
-        }}
-      />
+
       <Tabs.Screen
         name="manage"
         options={{
