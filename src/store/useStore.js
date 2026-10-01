@@ -403,6 +403,13 @@ export const useStore = create((set, get) => ({
     } catch (e) { console.error('Failed to delete sub category:', e); }
   },
 
+  updateSavingsCategory: async (data) => {
+    try {
+      await apiFetch('/update-savings-category', { method: 'PUT', body: JSON.stringify(data) });
+      get().fetchData();
+    } catch (e) { console.error('Failed to update savings category:', e); }
+  },
+
   allocatePayday: async (payload) => {
     try {
       await apiFetch('/allocate-payday', {

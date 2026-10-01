@@ -42,7 +42,7 @@ const Dropdown = ({ label, items, selectedId, onSelect, placeholder }) => {
   );
 };
 
-export default function AddTransactionModal({ visible, onClose, editingTransaction }) {
+export default function AddTransactionModal({ visible, onClose, editingTransaction, isSavingsMode = false }) {
   const router = useRouter();
   const [type, setType] = useState('debit');
   const [amount, setAmount] = useState('');
@@ -182,9 +182,14 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const availableSubCategories = subCategories.filter(sub => {
     const master = masterCategories.find(mc => mc.id === sub.master_category_id);
     if (!master) return false;
-    return type === 'debit' 
-      ? (master.type === 'expense' || master.type === 'savings') 
-      : (master.type === 'income' || master.type === 'savings' || master.type === 'expense');
+    
+    if (isSavingsMode) {
+      return master.type === 'savings';
+    } else {
+      return type === 'debit' 
+        ? master.type === 'expense' 
+        : (master.type === 'income' || master.type === 'expense'); // Not savings
+    }
   });
 
   const expenseAndSavingsCategories = subCategories.filter(sub => {
@@ -194,9 +199,9 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
 
   const selectedSub = subCategories.find(s => s.id === selectedSubCatId);
   const isSavingsCategory = masterCategories.find(m => m.id === selectedSub?.master_category_id)?.type === 'savings';
-  
-  const debitLabel = isSavingsCategory ? "Add to Goal" : "Money Out (Debit)";
-  const creditLabel = isSavingsCategory ? "Use from Goal" : "Money In (Credit)";
+
+  const debitLabel = isSavingsMode ? "Add to Goal (Debit)" : "Money Out (Debit)";
+  const creditLabel = isSavingsMode ? "Withdraw from Goal (Credit)" : "Money In (Credit)";
 
   const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
 
@@ -264,27 +269,32 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
                 />
 
                 <Dropdown 
-                  label="Bank Account" 
-                  items={banks} 
-                  selectedId={selectedBankId} 
-                  onSelect={setSelectedBankId} 
-                  placeholder="Select a bank account" 
-                />
-
-                <Dropdown 
                   label="Category" 
                   items={availableSubCategories} 
                   selectedId={selectedSubCatId} 
                   onSelect={(id) => {
                     setSelectedSubCatId(id);
                     if (!editingTransaction && id) {
-                      const lastTx = expenses.find(e => e.sub_category_id === id);
-                      if (lastTx && lastTx.bank_account_id) {
-                        setSelectedBankId(lastTx.bank_account_id);
+                      const selectedSub = subCategories.find(s => s.id === id);
+                      if (selectedSub?.default_bank_account_id) {
+                        setSelectedBankId(selectedSub.default_bank_account_id);
+                      } else {
+                        const lastTx = expenses.find(e => e.sub_category_id === id);
+                        if (lastTx && lastTx.bank_account_id) {
+                          setSelectedBankId(lastTx.bank_account_id);
+                        }
                       }
                     }
                   }} 
                   placeholder={type === 'debit' ? "Select an expense category" : "Select an income category"} 
+                />
+
+                <Dropdown 
+                  label="Bank Account" 
+                  items={banks} 
+                  selectedId={selectedBankId} 
+                  onSelect={setSelectedBankId} 
+                  placeholder="Select a bank account" 
                 />
 
                 <TextInput

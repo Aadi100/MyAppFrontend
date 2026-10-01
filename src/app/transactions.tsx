@@ -166,7 +166,7 @@ export default function TransactionsScreen() {
       <AddTransactionModal 
         visible={modalVisible} 
         onClose={() => setModalVisible(false)} 
-        expenseToEdit={editingTransaction}
+        editingTransaction={editingTransaction}
       />
     </View>
   );

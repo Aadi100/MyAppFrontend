@@ -10,9 +10,11 @@ export default function VaultScreen() {
   const revealPasswordEntry = useStore((state) => state.revealPasswordEntry);
   const deletePasswordEntry = useStore((state) => state.deletePasswordEntry);
 
+  const updatePasswordEntry = useStore((state) => state.updatePasswordEntry);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [revealedPasswords, setRevealedPasswords] = useState({});
-  const [form, setForm] = useState({ service_name: '', username: '', password: '', website_url: '', category: '', notes: '' });
+  const [form, setForm] = useState({ id: null, service_name: '', username: '', password: '', website_url: '', category: '', notes: '' });
 
   useEffect(() => {
     fetchPasswordEntries();
@@ -33,14 +35,41 @@ export default function VaultScreen() {
     }
   };
 
+  const handleEdit = async (entry) => {
+    // Reveal password before editing
+    let plainPassword = revealedPasswords[entry.id];
+    if (!plainPassword) {
+      plainPassword = await revealPasswordEntry(entry.id);
+      if (!plainPassword) {
+        alert("Failed to decrypt password for editing.");
+        return;
+      }
+      setRevealedPasswords({ ...revealedPasswords, [entry.id]: plainPassword });
+    }
+    setForm({ 
+      id: entry.id, 
+      service_name: entry.service_name, 
+      username: entry.username || '', 
+      password: plainPassword, 
+      website_url: entry.website_url || '', 
+      category: entry.category || '', 
+      notes: entry.notes || '' 
+    });
+    setModalVisible(true);
+  };
+
   const handleSave = async () => {
     if (!form.service_name || !form.password) {
       alert("Service Name and Password are required!");
       return;
     }
-    await addPasswordEntry(form);
+    if (form.id) {
+      await updatePasswordEntry(form);
+    } else {
+      await addPasswordEntry(form);
+    }
     setModalVisible(false);
-    setForm({ service_name: '', username: '', password: '', website_url: '', category: '', notes: '' });
+    setForm({ id: null, service_name: '', username: '', password: '', website_url: '', category: '', notes: '' });
   };
 
   const handleDelete = (id) => {
@@ -52,7 +81,7 @@ export default function VaultScreen() {
       <ScrollView>
         <View style={styles.headerRow}>
           <Text style={styles.header}>Password Vault</Text>
-          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
+          <TouchableOpacity onPress={() => { setForm({ id: null, service_name: '', username: '', password: '', website_url: '', category: '', notes: '' }); setModalVisible(true); }} style={styles.addButton}>
             <Ionicons name="add" size={24} color="#12121D" />
           </TouchableOpacity>
         </View>
@@ -64,13 +93,18 @@ export default function VaultScreen() {
         {passwordEntries.map((entry) => (
           <View key={entry.id} style={styles.card}>
             <View style={styles.cardHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.serviceName}>{entry.service_name}</Text>
                 {entry.username ? <Text style={styles.subtext}>{entry.username}</Text> : null}
               </View>
-              <TouchableOpacity onPress={() => handleDelete(entry.id)}>
-                <Ionicons name="trash-outline" size={20} color="#F87171" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => handleEdit(entry)} style={{ marginRight: 16 }}>
+                  <Ionicons name="pencil" size={20} color="#8A8A9E" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDelete(entry.id)}>
+                  <Ionicons name="trash-outline" size={20} color="#F87171" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.passwordRow}>
@@ -91,14 +125,14 @@ export default function VaultScreen() {
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Password</Text>
+            <Text style={styles.modalTitle}>{form.id ? 'Edit Password' : 'Add Password'}</Text>
             
             <ScrollView style={{maxHeight: 400}}>
               <TextInput style={styles.input} placeholder="Service Name (e.g. Netflix)" placeholderTextColor="#8A8A9E"
                 value={form.service_name} onChangeText={(val) => setForm({...form, service_name: val})} />
               <TextInput style={styles.input} placeholder="Username / Email" placeholderTextColor="#8A8A9E"
                 value={form.username} onChangeText={(val) => setForm({...form, username: val})} autoCapitalize="none" />
-              <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#8A8A9E" secureTextEntry
+              <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#8A8A9E" secureTextEntry={!form.id} // Don't hide if editing a revealed password
                 value={form.password} onChangeText={(val) => setForm({...form, password: val})} />
               <TextInput style={styles.input} placeholder="Website URL" placeholderTextColor="#8A8A9E"
                 value={form.website_url} onChangeText={(val) => setForm({...form, website_url: val})} autoCapitalize="none" />

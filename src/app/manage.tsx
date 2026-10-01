@@ -25,6 +25,7 @@ export default function ManageScreen() {
   const addMasterCategory = useStore(state => state.addMasterCategory);
   const updateMasterCategory = useStore(state => state.updateMasterCategory);
   const deleteMasterCategory = useStore(state => state.deleteMasterCategory);
+  const updateSavingsCategory = useStore(state => state.updateSavingsCategory);
 
   const addSubCategory = useStore(state => state.addSubCategory);
   const updateSubCategory = useStore(state => state.updateSubCategory);
@@ -189,9 +190,16 @@ export default function ManageScreen() {
                     <View style={styles.subCatContainer}>
                       {subs.map(sub => (
                         <View key={sub.id} style={styles.subCatRow}>
-                          <View style={styles.treeLine} />
-                          <Text style={styles.subCatText}>{sub.name}</Text>
+                          <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                            <View style={styles.treeLine} />
+                            <Text style={styles.subCatText}>{sub.name}</Text>
+                          </View>
                           <View style={styles.actionRow}>
+                            {cat.type === 'savings' && (
+                              <TouchableOpacity onPress={() => updateSavingsCategory({ id: sub.id, invested: !sub.invested })} style={styles.iconBtn}>
+                                <Text style={{fontSize: 10, color: sub.invested ? '#4ADE80' : '#94A3B8', fontWeight: 'bold'}}>{sub.invested ? 'INVESTED' : 'LIQUID'}</Text>
+                              </TouchableOpacity>
+                            )}
                             <TouchableOpacity onPress={() => handleEditSubCategory(sub)} style={styles.iconBtn}><Ionicons name="pencil" size={14} color="#8A8A9E" /></TouchableOpacity>
                             <TouchableOpacity onPress={() => handleDelete(sub.name, () => deleteSubCategory(sub.id))} style={styles.iconBtn}><Ionicons name="trash" size={14} color="#F87171" /></TouchableOpacity>
                           </View>
@@ -437,6 +445,9 @@ export default function ManageScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
           <View style={styles.sheetContent}>
             <Text style={styles.sheetTitle}>{budgetForm.sub_category_id ? "Edit Budget" : "New Budget Allocation"}</Text>
+            <Text style={{color: '#8A8A9E', fontSize: 12, marginBottom: 16}}>
+               Note: Setting a budget for an expense category will automatically create a debit transaction (audit trail) from its default bank account.
+            </Text>
             
             <Text style={styles.sheetLabel}>Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>

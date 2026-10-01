@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 export default function Dashboard() {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [savingsModalVisible, setSavingsModalVisible] = useState(false);
   const expenses = useStore((state) => state.expenses);
   const fetchData = useStore((state) => state.fetchData);
   const dashboardSummary = useStore((state) => state.dashboardSummary);
@@ -290,7 +291,13 @@ export default function Dashboard() {
         </View>
       </ScrollView>
 
-      {/* FLOATING ACTION BUTTON */}
+      {/* FLOATING ACTION BUTTONS */}
+      <TouchableOpacity style={[styles.fab, { bottom: 104 }]} onPress={() => setSavingsModalVisible(true)}>
+        <LinearGradient colors={['#FBBF24', '#D97706']} style={styles.fabGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
+          <Ionicons name="wallet" size={24} color="#0F1015" />
+        </LinearGradient>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
         <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.fabGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
           <Ionicons name="add" size={32} color="#0F1015" />
@@ -298,6 +305,7 @@ export default function Dashboard() {
       </TouchableOpacity>
 
       <AddTransactionModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+      <AddTransactionModal visible={savingsModalVisible} onClose={() => setSavingsModalVisible(false)} isSavingsMode={true} />
     </View>
   );
 }

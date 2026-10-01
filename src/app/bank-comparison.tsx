@@ -70,6 +70,12 @@ export default function BankComparisonScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
+          {comparison.verification_note && (
+            <View style={styles.verificationNoteContainer}>
+              <Ionicons name="information-circle-outline" size={16} color="#8A8A9E" style={{ marginRight: 6 }} />
+              <Text style={styles.verificationNoteText}>{comparison.verification_note}</Text>
+            </View>
+          )}
           {comparison.banks.map(bank => (
             <TouchableOpacity 
               key={bank.id} 
@@ -79,12 +85,15 @@ export default function BankComparisonScreen() {
               <View style={styles.cardHeader}>
                 <View>
                   <Text style={styles.bankName}>{bank.name}</Text>
+                  <Text style={styles.openingBalance}>
+                    Opening Bal: {fmt(bank.calculated_opening_balance || 0)}
+                  </Text>
                   {bank.overspend_this_month > 0 && (
                     <Text style={{ color: '#F87171', fontSize: 12, marginTop: 4 }}>Overspent: {fmt(bank.overspend_this_month)}</Text>
                   )}
                 </View>
-                <Text style={[styles.bankBalance, { color: bank.balance >= 0 ? '#4ADE80' : '#F87171' }]}>
-                  {fmt(bank.balance)}
+                <Text style={[styles.bankBalance, { color: (bank.balance !== undefined ? bank.balance : bank.current_balance) >= 0 ? '#4ADE80' : '#F87171' }]}>
+                  {fmt(bank.balance !== undefined ? bank.balance : bank.current_balance)}
                 </Text>
               </View>
               
@@ -157,9 +166,12 @@ const styles = StyleSheet.create({
   monthSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, backgroundColor: '#1E1E2D', padding: 12, borderRadius: 16 },
   monthBtn: { padding: 8 },
   monthText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  verificationNoteContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E2D', padding: 12, borderRadius: 12, marginBottom: 16 },
+  verificationNoteText: { color: '#8A8A9E', fontSize: 12, flex: 1 },
   card: { backgroundColor: '#1E1E2D', borderRadius: 20, padding: 20, marginBottom: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   bankName: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+  openingBalance: { color: '#8A8A9E', fontSize: 13, marginTop: 4 },
   bankBalance: { fontSize: 20, fontWeight: 'bold' },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   statBox: { flex: 1, backgroundColor: '#12121D', padding: 12, borderRadius: 12, marginRight: 8 },
