@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
 
-export default function UdharScreen() {
+export default function PayablesScreen() {
   const peopleSummary = useStore((state) => state.peopleSummary) || [];
   const banks = useStore((state) => state.banks);
   const people = useStore((state) => state.people);
@@ -20,7 +20,7 @@ export default function UdharScreen() {
   // Create / Pay Modals
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('lent');
-  const [form, setForm] = useState({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
+  const [form, setForm] = useState({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', savings_sub_category_id: '' });
   
   const [personModalVisible, setPersonModalVisible] = useState(false);
   const [personForm, setPersonForm] = useState({ name: '', phone: '' });
@@ -55,11 +55,10 @@ export default function UdharScreen() {
       payload.savings_sub_category_id = form.savings_sub_category_id;
     } else {
       payload.bank_account_id = form.bank_account_id || null;
-      payload.sub_category_id = form.sub_category_id || null;
     }
 
     addDebt(payload);
-    setForm({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', sub_category_id: '', savings_sub_category_id: '' });
+    setForm({ person_id: '', amount: '', source_type: 'bank', bank_account_id: '', savings_sub_category_id: '' });
     setModalVisible(false);
   };
 
@@ -230,15 +229,6 @@ export default function UdharScreen() {
                     {banks.map(b => (
                       <TouchableOpacity key={b.id} style={[styles.pill, form.bank_account_id === b.id && styles.activePill]} onPress={() => setForm({...form, bank_account_id: form.bank_account_id === b.id ? '' : b.id})}>
                         <Text style={[styles.pillText, form.bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={styles.label}>Sub Category (Optional)</Text>
-                  <View style={styles.pillsContainer}>
-                    {subCategories.filter(sc => !masterCategories.find(mc => mc.id === sc.master_category_id)?.type).map(sc => (
-                      <TouchableOpacity key={sc.id} style={[styles.pill, form.sub_category_id === sc.id && styles.activePill]} onPress={() => setForm({...form, sub_category_id: form.sub_category_id === sc.id ? '' : sc.id})}>
-                        <Text style={[styles.pillText, form.sub_category_id === sc.id && styles.activePillText]}>{sc.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>

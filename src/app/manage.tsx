@@ -123,11 +123,11 @@ export default function ManageScreen() {
             </LinearGradient>
             <Text style={styles.menuGridText}>Savings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/udhar')}>
+          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/payables')}>
             <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
               <Ionicons name="people" size={28} color="#fff" />
             </LinearGradient>
-            <Text style={styles.menuGridText}>Udhar</Text>
+            <Text style={styles.menuGridText}>Payables & Receivables</Text>
           </TouchableOpacity>
           <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/vault')}>
             <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>

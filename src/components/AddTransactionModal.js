@@ -62,6 +62,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const addExpense = useStore((state) => state.addExpense);
   const updateExpense = useStore((state) => state.updateExpense);
   const receiveIncome = useStore((state) => state.receiveIncome);
+  const createSavingsTransaction = useStore((state) => state.createSavingsTransaction);
 
   React.useEffect(() => {
     if (visible && editingTransaction) {
@@ -153,8 +154,19 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
       if (savings_allocations.length > 0) payload.savings_allocations = savings_allocations;
       
       receiveIncome(payload);
+    } else if (master?.type === 'savings') {
+      const payload = {
+        savings_category_id: selectedSubCatId,
+        amount: parseFloat(amount),
+        type: type === 'debit' ? 'invested' : 'liquid',
+        direction: 'debit',
+        reason: reason,
+        bank_id: selectedBankId,
+        date: validDate.toISOString().split('T')[0],
+      };
+      createSavingsTransaction(payload);
     } else {
-      // Either expense or savings
+      // Either expense
       const payload = {
         type: type,
         amount: parseFloat(amount),
@@ -200,8 +212,8 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const selectedSub = subCategories.find(s => s.id === selectedSubCatId);
   const isSavingsCategory = masterCategories.find(m => m.id === selectedSub?.master_category_id)?.type === 'savings';
 
-  const debitLabel = isSavingsMode ? "Add to Goal (Debit)" : "Money Out (Debit)";
-  const creditLabel = isSavingsMode ? "Withdraw from Goal (Credit)" : "Money In (Credit)";
+  const debitLabel = isSavingsMode ? "Invested" : "Money Out (Debit)";
+  const creditLabel = isSavingsMode ? "Liquid" : "Money In (Credit)";
 
   const safeDate = date instanceof Date && !isNaN(date.getTime()) ? date : new Date();
 

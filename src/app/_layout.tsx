@@ -63,7 +63,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen name="savings" options={{ href: null }} />
-      <Tabs.Screen name="udhar" options={{ href: null }} />
+      <Tabs.Screen name="payables" options={{ href: null }} />
       <Tabs.Screen name="vault" options={{ href: null }} />
       <Tabs.Screen name="payday" options={{ href: null }} />
       <Tabs.Screen name="bank-summary" options={{ href: null }} />

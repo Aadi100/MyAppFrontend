@@ -516,6 +516,20 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  createSavingsTransaction: async (payload) => {
+    try {
+      await apiFetch('/create-savings-transaction', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      get().fetchData();
+      get().fetchDashboardSummary();
+    } catch (e) {
+      console.error('Failed to create savings transaction:', e);
+      Alert.alert("Error", e.message || "Failed to create savings transaction.");
+    }
+  },
+
   withdrawSavings: async (data) => {
     try {
       await apiFetch('/withdraw-from-savings', { method: 'POST', body: JSON.stringify(data) });
