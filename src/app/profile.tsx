@@ -115,6 +115,6 @@ const styles = StyleSheet.create({
   name: { color: C.text, fontSize: 22, fontWeight: '800', marginTop: 14 },
   email: { color: C.mute, fontSize: 14, marginTop: 4 },
   version: { color: C.dim, fontSize: 12, textAlign: 'center', marginTop: 26 },
-  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.card, padding: 16, borderRadius: 16, marginTop: 12 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.s2, padding: 16, borderRadius: 16, marginTop: 12 },
   settingLabel: { color: C.text, fontSize: 16, fontWeight: '600' },
 });

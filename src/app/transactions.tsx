@@ -194,7 +194,7 @@ export default function TransactionsScreen() {
                     donut
                     radius={80}
                     innerRadius={55}
-                    innerCircleColor={C.card}
+                    innerCircleColor={C.s2}
                     centerLabelComponent={() => <Text style={{color: C.text, fontSize: 16, fontWeight: '800'}}>{money(totalOut)}</Text>}
                   />
                 </View>

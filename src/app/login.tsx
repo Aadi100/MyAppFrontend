@@ -26,6 +26,26 @@ export default function LoginScreen() {
     }
   }, [accessToken]);
 
+  const handleBiometricAuth = async (savedEmail?: string, savedPassword?: string) => {
+    const e = savedEmail || await SecureStore.getItemAsync('saved_email');
+    const p = savedPassword || await SecureStore.getItemAsync('saved_password');
+    if (!e || !p) return;
+
+    const authResult = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Login to Expense Manager',
+      fallbackLabel: 'Use Password',
+    });
+
+    if (authResult.success) {
+      setLoading(true);
+      const success = await login(e, p);
+      setLoading(false);
+      if (success) {
+        router.replace('/');
+      }
+    }
+  };
+
   useEffect(() => {
     const checkBiometric = async () => {
       const isEnabled = await SecureStore.getItemAsync('biometric_enabled');
@@ -46,26 +66,6 @@ export default function LoginScreen() {
       checkBiometric();
     }
   }, [accessToken]);
-
-  const handleBiometricAuth = async (savedEmail?: string, savedPassword?: string) => {
-    const e = savedEmail || await SecureStore.getItemAsync('saved_email');
-    const p = savedPassword || await SecureStore.getItemAsync('saved_password');
-    if (!e || !p) return;
-
-    const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Login to Expense Manager',
-      fallbackLabel: 'Use Password',
-    });
-    
-    if (authResult.success) {
-      setLoading(true);
-      const success = await login(e, p);
-      setLoading(false);
-      if (success) {
-        router.replace('/');
-      }
-    }
-  };
 
   const handleLogin = async () => {
     if (!email || !password) return;

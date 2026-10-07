@@ -22,6 +22,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.CAMERA"],
       "package": "com.aadii.myapp"
     },
     "web": {
@@ -41,13 +42,6 @@
       "@react-native-community/datetimepicker",
       "expo-secure-store",
       "expo-sharing",
-      [
-        "react-native-vision-camera",
-        {
-          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera to verify your identity.",
-          "enableMicrophonePermission": false
-        }
-      ],
       "./plugins/withAutofill.js"
     ],
     "experiments": {

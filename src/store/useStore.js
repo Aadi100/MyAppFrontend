@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Alert } from 'react-native';
+import { syncAllNotifications } from '../services/NotificationService';
 
 const BASE_URL = 'https://bpdxcicflehdmrpnrnyl.supabase.co/functions/v1';
 const ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -40,7 +41,24 @@ export const useStore = create((set, get) => ({
   monthlyBudgets: [],
   peopleSummary: [],
   notes: [],
+  reminders: [],
   
+  // Smart Insights state
+  insights: [],
+  healthScore: null,
+  cashflowForecast: null,
+  detectedSubscriptions: [],
+
+  // To-Do state
+  todos: [],
+
+
+  
+  syncAppNotifications: async () => {
+    const state = get();
+    await syncAllNotifications(state.reminders, state.todos);
+  },
+
   fetchData: async () => {
     try {
       const data = await apiFetch('/get-init-data');
@@ -57,6 +75,8 @@ export const useStore = create((set, get) => ({
         appSettings: data.app_settings || null,
         peopleSummary: peopleSummaryData || []
       });
+      get().fetchReminders();
+      get().fetchTodos();
     } catch (e) {
       console.error('Failed to fetch initial data:', e);
     }
@@ -758,6 +778,143 @@ export const useStore = create((set, get) => ({
     } catch (e) {
       console.error('Failed to delete note:', e);
     }
+  },
+
+  // Reminders API
+  fetchReminders: async () => {
+    try {
+      const data = await apiFetch('/get-reminders');
+      set({ reminders: data || [] });
+      get().syncAppNotifications();
+    } catch (e) { console.error('Failed to fetch reminders:', e); }
+  },
+  createReminder: async (data) => {
+    try {
+      await apiFetch('/create-reminder', { method: 'POST', body: JSON.stringify(data) });
+      get().fetchReminders();
+    } catch (e) { console.error('Failed to create reminder:', e); Alert.alert('Error', e.message); }
+  },
+  updateReminder: async (data) => {
+    try {
+      await apiFetch('/update-reminder', { method: 'PUT', body: JSON.stringify(data) });
+      get().fetchReminders();
+    } catch (e) { console.error('Failed to update reminder:', e); Alert.alert('Error', e.message); }
+  },
+  completeReminder: async (id) => {
+    try {
+      await apiFetch('/complete-reminder', { method: 'POST', body: JSON.stringify({ id }) });
+      get().fetchReminders();
+    } catch (e) { console.error('Failed to complete reminder:', e); Alert.alert('Error', e.message); }
+  },
+  deleteReminder: async (id) => {
+    try {
+      await apiFetch('/delete-reminder', { method: 'DELETE', body: JSON.stringify({ id }) });
+      get().fetchReminders();
+    } catch (e) { console.error('Failed to delete reminder:', e); }
+  },
+
+  // Smart Insights API
+  fetchInsights: async (month) => {
+    try {
+      const url = month ? `/get-spending-insights?month=${month}` : '/get-spending-insights';
+      const data = await apiFetch(url);
+      set({ insights: data || [] });
+    } catch (e) { console.error('Failed to fetch insights:', e); }
+  },
+
+  fetchHealthScore: async (month) => {
+    try {
+      const url = month ? `/get-financial-health-score?month=${month}` : '/get-financial-health-score';
+      const data = await apiFetch(url);
+      set({ healthScore: data });
+    } catch (e) { console.error('Failed to fetch health score:', e); }
+  },
+
+  fetchCashflowForecast: async (month) => {
+    try {
+      const url = month ? `/get-cashflow-forecast?month=${month}` : '/get-cashflow-forecast';
+      const data = await apiFetch(url);
+      set({ cashflowForecast: data });
+    } catch (e) { console.error('Failed to fetch cashflow forecast:', e); }
+  },
+
+  fetchDetectedSubscriptions: async () => {
+    try {
+      const data = await apiFetch('/detect-subscriptions');
+      set({ detectedSubscriptions: data || [] });
+    } catch (e) { console.error('Failed to fetch detected subscriptions:', e); }
+  },
+
+  simulateSavingsGoal: async (payload) => {
+    try {
+      return await apiFetch('/simulate-savings-goal', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error('Failed to simulate savings goal:', e);
+      return null;
+    }
+  },
+
+  suggestCategory: async (reason) => {
+    try {
+      return await apiFetch(`/suggest-category?reason=${encodeURIComponent(reason)}`);
+    } catch (e) {
+      console.error('Failed to suggest category:', e);
+      return [];
+    }
+  },
+
+  // To-Do API
+  fetchTodos: async () => {
+    try {
+      const data = await await apiFetch('/get-todos');
+      set({ todos: data || [] });
+      get().syncAppNotifications();
+    } catch (e) { console.error('Failed to fetch todos:', e); }
+  },
+  createTodo: async (data) => {
+    try {
+      await apiFetch('/create-todo', { method: 'POST', body: JSON.stringify(data) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to create todo:', e); Alert.alert('Error', e.message); }
+  },
+  updateTodo: async (data) => {
+    try {
+      await apiFetch('/update-todo', { method: 'PUT', body: JSON.stringify(data) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to update todo:', e); Alert.alert('Error', e.message); }
+  },
+  completeTodo: async (id) => {
+    try {
+      await apiFetch('/complete-todo', { method: 'POST', body: JSON.stringify({ id }) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to complete todo:', e); Alert.alert('Error', e.message); }
+  },
+  deleteTodo: async (id) => {
+    try {
+      await apiFetch('/delete-todo', { method: 'DELETE', body: JSON.stringify({ id }) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to delete todo:', e); }
+  },
+  addSubtask: async (data) => {
+    try {
+      await apiFetch('/add-subtask', { method: 'POST', body: JSON.stringify(data) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to add subtask:', e); Alert.alert('Error', e.message); }
+  },
+  updateSubtask: async (data) => {
+    try {
+      await apiFetch('/update-subtask', { method: 'PUT', body: JSON.stringify(data) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to update subtask:', e); Alert.alert('Error', e.message); }
+  },
+  deleteSubtask: async (id) => {
+    try {
+      await apiFetch('/delete-subtask', { method: 'DELETE', body: JSON.stringify({ id }) });
+      get().fetchTodos();
+    } catch (e) { console.error('Failed to delete subtask:', e); }
   },
 
 }));

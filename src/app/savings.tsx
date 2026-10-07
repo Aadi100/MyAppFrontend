@@ -14,6 +14,7 @@ export default function SavingsScreen() {
   const addSubCategory = useStore((state) => state.addSubCategory);
   const addExpense = useStore((state) => state.addExpense);
   const dashboardSummary = useStore((state) => state.dashboardSummary);
+  const simulateSavingsGoal = useStore((state) => state.simulateSavingsGoal);
 
   const savings = subCategories.filter(sub => {
     const master = masterCategories.find(mc => mc.id === sub.master_category_id);
@@ -28,6 +29,10 @@ export default function SavingsScreen() {
 
   const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
   const [withdrawForm, setWithdrawForm] = useState({ sub_category_id: '', amount: '', reason: '', bank_account_id: '' });
+
+  const [simulateModalVisible, setSimulateModalVisible] = useState(false);
+  const [simulateForm, setSimulateForm] = useState({ sub_category_id: '', extra_amount: '' });
+  const [simulateResult, setSimulateResult] = useState<any>(null);
 
   const handleSave = () => {
     if (!form.title || !form.target_amount) return;
@@ -96,6 +101,18 @@ export default function SavingsScreen() {
     setWithdrawForm({ sub_category_id: goal.id, amount: '', reason: '', bank_account_id: banks.length > 0 ? banks[0].id : '' });
     setWithdrawModalVisible(true);
   };
+  const openSimulate = (goal) => {
+    setSimulateForm({ sub_category_id: goal.id, extra_amount: '' });
+    setSimulateResult(null);
+    setSimulateModalVisible(true);
+  };
+  const handleSimulate = async () => {
+    const res = await simulateSavingsGoal({
+      sub_category_id: simulateForm.sub_category_id,
+      extra_monthly_amount: parseFloat(simulateForm.extra_amount) || 0
+    });
+    if (res) setSimulateResult(res);
+  };
 
   const contributeGoal = rows.find(r => r.goal.id === contributeForm.sub_category_id);
   const withdrawGoal = rows.find(r => r.goal.id === withdrawForm.sub_category_id);
@@ -157,9 +174,10 @@ export default function SavingsScreen() {
                 <Text style={styles.goalSub}>
                   {r.lentOut > 0 ? `Rs ${num(r.current)} saved · Rs ${num(r.lentOut)} lent` : r.isComplete ? 'Goal reached' : `Rs ${num(Math.max(0, r.target - r.totalVal))} to go`}
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                   {!r.isComplete && <PrimaryButton title="Add" icon="add" small onPress={() => openContribute(r.goal)} style={{ height: 32, borderRadius: 10 }} />}
                   <PrimaryButton title="Withdraw" variant="ghost" small onPress={() => openWithdraw(r.goal, r.current)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />
+                  {!r.isComplete && <PrimaryButton title="AI Forecast" icon="bulb-outline" variant="outline" small onPress={() => openSimulate(r.goal)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />}
                 </View>
               </View>
             </Card>
@@ -200,6 +218,25 @@ export default function SavingsScreen() {
         <Field label="Reason"><Input icon="pencil-outline" placeholder="e.g. Bought mutual funds" value={withdrawForm.reason} onChangeText={(val) => setWithdrawForm({ ...withdrawForm, reason: val })} /></Field>
         <Field label="Withdraw to bank account">{bankChips(withdrawForm.bank_account_id, (id) => setWithdrawForm({ ...withdrawForm, bank_account_id: id }))}</Field>
       </Sheet>
+
+      {/* Simulate */}
+      <Sheet visible={simulateModalVisible} onClose={() => setSimulateModalVisible(false)} title="AI Savings Forecast">
+        <Text style={[styles.goalSub, { marginBottom: 12 }]}>Simulate how much faster you'll reach your goal by adding extra money each month.</Text>
+        <Field label="Extra Monthly Amount">
+          <Input icon="cash-outline" placeholder="e.g. 5000" keyboardType="decimal-pad" value={simulateForm.extra_amount} onChangeText={(val) => setSimulateForm({ ...simulateForm, extra_amount: val })} />
+        </Field>
+        <PrimaryButton title="Run Simulation" onPress={handleSimulate} style={{ marginTop: 12 }} />
+        
+        {simulateResult && (
+          <Card style={{ marginTop: 20, backgroundColor: alpha(C.violet, 0.1), borderColor: alpha(C.violet, 0.3) }}>
+            <Text style={{ color: C.text, fontWeight: '700', fontSize: 16, marginBottom: 8 }}>Simulation Results</Text>
+            <Text style={{ color: C.mute, fontSize: 13, marginBottom: 4 }}>At your current pace, it will take <Text style={{ color: C.acc, fontWeight: 'bold' }}>{simulateResult.months_at_current_rate} months</Text>.</Text>
+            <Text style={{ color: C.mute, fontSize: 13, marginBottom: 4 }}>With an extra {money(simulateResult.extra_monthly_amount)}/mo, it will only take <Text style={{ color: C.green, fontWeight: 'bold' }}>{simulateResult.months_with_extra} months</Text>!</Text>
+            <Text style={{ color: C.violet, fontWeight: '800', marginTop: 8 }}>You save {simulateResult.months_saved} months of waiting!</Text>
+          </Card>
+        )}
+      </Sheet>
+
     </>
   );
 }

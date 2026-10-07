@@ -5,9 +5,8 @@ import * as Updates from 'expo-updates';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import { Camera, useCameraDevice, useFrameProcessor } from 'react-native-vision-camera';
-import { useFaceDetector } from 'react-native-vision-camera-face-detector';
-import { runOnJS } from 'react-native-worklets-core';
+import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { Camera as FaceDetectorCamera, type Face } from 'react-native-vision-camera-face-detector';
 import TabBar from '../ui/TabBar';
 import { useStore } from '../store/useStore';
 import { C } from '../ui/theme';
@@ -18,44 +17,56 @@ export default function TabLayout() {
   
   const [isLocked, setIsLocked] = useState(false);
   const appState = useRef(AppState.currentState);
-  const backgroundTime = useRef(null);
+  const backgroundTime = useRef<number | null>(null);
 
   // Vision Camera Liveness
-  const [hasPermission, setHasPermission] = useState(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
-  const { detectFaces } = useFaceDetector({ performanceMode: 'fast', contourMode: 'none', landmarkMode: 'none', classificationMode: 'none' });
-  const lastFaceTime = useRef(Date.now());
+  const lastFaceTimeRef = useRef<number>(0);
   const livenessEnabled = useRef(false);
+  const missingFaceCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleUnlock = async () => {
+    const authResult = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Unlock Expense Manager',
+      fallbackLabel: 'Use Password',
+    });
+    if (authResult.success) {
+      setIsLocked(false);
+    }
+  };
 
   useEffect(() => {
+    lastFaceTimeRef.current = Date.now();
     (async () => {
-      const status = await Camera.requestCameraPermission();
-      setHasPermission(status === 'granted');
+      if (!hasPermission) await requestPermission();
       const enabled = await SecureStore.getItemAsync('biometric_enabled');
       livenessEnabled.current = enabled === 'true';
     })();
   }, []);
 
-  const updateFaceTime = () => { lastFaceTime.current = Date.now(); };
-  
-  const handleMissingFace = () => {
-    if (!isLocked && livenessEnabled.current && accessToken) {
-      if (Date.now() - lastFaceTime.current > 30000) { // 30 seconds
-        setIsLocked(true);
-        handleUnlock();
-      }
+  const handleFacesDetected = (faces: Face[]) => {
+    if (faces.length > 0) {
+      lastFaceTimeRef.current = Date.now();
     }
   };
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    const faces = detectFaces(frame);
-    if (faces.length > 0) {
-      runOnJS(updateFaceTime)();
-    } else {
-      runOnJS(handleMissingFace)();
-    }
-  }, [detectFaces]);
+  // Poll on JS thread instead of a native frame processor (no worklets runtime
+  // is installed), checking roughly every few seconds whether a face has been
+  // seen recently.
+  useEffect(() => {
+    missingFaceCheckRef.current = setInterval(() => {
+      if (!isLocked && livenessEnabled.current && accessToken) {
+        if (Date.now() - lastFaceTimeRef.current > 30000) { // 30 seconds
+          setIsLocked(true);
+          handleUnlock();
+        }
+      }
+    }, 5000);
+    return () => {
+      if (missingFaceCheckRef.current) clearInterval(missingFaceCheckRef.current);
+    };
+  }, [isLocked, accessToken]);
 
   useEffect(() => {
     async function checkForUpdates() {
@@ -97,16 +108,6 @@ export default function TabLayout() {
     };
   }, [accessToken]);
 
-  const handleUnlock = async () => {
-    const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock Expense Manager',
-      fallbackLabel: 'Use Password',
-    });
-    if (authResult.success) {
-      setIsLocked(false);
-    }
-  };
-
   const forceLogout = () => {
     useStore.setState({ accessToken: null, profile: null });
     setIsLocked(false);
@@ -126,6 +127,9 @@ export default function TabLayout() {
         <Tabs.Screen name="payday" options={{ href: null }} />
         <Tabs.Screen name="bank-summary" options={{ href: null }} />
         <Tabs.Screen name="notes" options={{ href: null }} />
+        <Tabs.Screen name="reminders" options={{ href: null }} />
+        <Tabs.Screen name="todos" options={{ href: null }} />
+        <Tabs.Screen name="insights" options={{ href: null }} />
         <Tabs.Screen name="login" options={{ href: null }} />
         <Tabs.Screen name="signup" options={{ href: null }} />
         <Tabs.Screen name="recover" options={{ href: null }} />
@@ -135,11 +139,13 @@ export default function TabLayout() {
 
       {hasPermission && device && accessToken && !isLocked && (
         <View style={{ position: 'absolute', top: -2000, width: 10, height: 10, opacity: 0 }} pointerEvents="none">
-          <Camera
+          <FaceDetectorCamera
             style={StyleSheet.absoluteFill}
             device={device}
             isActive={true}
-            frameProcessor={frameProcessor}
+            performanceMode="fast"
+            onFacesDetected={handleFacesDetected}
+            onError={(e) => console.log('Face detector camera error:', e)}
           />
         </View>
       )}
@@ -166,7 +172,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#070A11',
     zIndex: 9999,
     alignItems: 'center',

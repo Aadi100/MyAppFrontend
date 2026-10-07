@@ -17,6 +17,9 @@ const TILES = [
   { route: '/vault', icon: 'key-outline', title: 'Password vault', sub: 'Saved logins', color: C.rose },
   { route: '/payday', icon: 'cash-outline', title: 'Payday', sub: 'Allocate your salary', color: C.acc },
   { route: '/notes', icon: 'document-text-outline', title: 'Notes', sub: 'Quick notepad', color: C.orange },
+  { route: '/todos', icon: 'checkbox-outline', title: 'To-Do List', sub: 'Tasks & Subtasks', color: C.red },
+  { route: '/reminders', icon: 'notifications-outline', title: 'Reminders', sub: 'Manage alerts', color: C.green },
+  { route: '/insights', icon: 'bulb-outline', title: 'Smart Insights', sub: 'Health & AI Forecasts', color: C.violet },
   { route: '/profile', icon: 'person-outline', title: 'Profile', sub: 'Account & security', color: C.blue },
 ] as const;
 
