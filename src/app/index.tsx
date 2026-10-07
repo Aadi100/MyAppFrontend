@@ -1,23 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../store/useStore';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { useRouter } from 'expo-router';
+import { Screen, Card, Hero, IconBox, Tag, Bar, MonthBar, SectionRow, Label, Ring, Donut, Sparkline, BarChart, EmptyState } from '../ui/kit';
+import { C, money, num, categoryIcon } from '../ui/theme';
+
+const DAY = 24 * 60 * 60 * 1000;
+const DONUT_COLORS = [C.acc, C.blue, C.violet, C.amber];
 
 export default function Dashboard() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState<'debit' | 'credit'>('debit');
   const [savingsModalVisible, setSavingsModalVisible] = useState(false);
   const expenses = useStore((state) => state.expenses);
   const fetchData = useStore((state) => state.fetchData);
   const dashboardSummary = useStore((state) => state.dashboardSummary);
   const fetchDashboardSummary = useStore((state) => state.fetchDashboardSummary);
+  const profileName = useStore((state) => state.profile?.name);
 
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
 
-  const accessToken = useStore(state => state.accessToken);
+  const accessToken = useStore((state) => state.accessToken);
 
   useEffect(() => {
     if (!accessToken) {
@@ -36,41 +44,31 @@ export default function Dashboard() {
 
   const totalBalance = dashboardSummary?.total_bank_balance || 0;
   const netWorth = dashboardSummary?.net_worth || 0;
-  const totalPosition = dashboardSummary?.total || 0;
   const totalOverspend = dashboardSummary?.total_overspend || 0;
   const income = dashboardSummary?.total_assigned_budget || 0;
   const spent = dashboardSummary?.total_spent_this_month || 0;
   const savings = dashboardSummary?.total_savings_saved || 0;
   const owedToMe = dashboardSummary?.total_owed_to_me || 0;
   const iOwe = dashboardSummary?.total_i_owe || 0;
-
-  // Format currency
-  const fmt = (num) => `Rs ${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-  const renderIcon = (categoryName) => {
-    switch (categoryName?.toLowerCase()) {
-      case 'food': return 'fast-food';
-      case 'transport': return 'car';
-      case 'utilities': return 'flash';
-      case 'entertainment': return 'game-controller';
-      default: return 'cash';
-    }
-  };
+  const incomeThisMonth = dashboardSummary?.total_income_this_month || 0;
+  const savingsTarget = dashboardSummary?.total_savings_target || 0;
+  const bankAccounts = dashboardSummary?.balance_per_bank_account || [];
+  const peopleBalances = dashboardSummary?.balance_per_person || [];
+  const owedPeople = peopleBalances.filter((p) => p.they_owe_me > 0).length;
+  const owePeople = peopleBalances.filter((p) => p.i_owe_them > 0).length;
+  const remaining = income - spent;
+  const usedPct = income > 0 ? Math.round((spent / income) * 100) : 0;
 
   const handlePrevMonth = () => {
     const [y, m] = currentMonth.split('-').map(Number);
     const d = new Date(y, (m || 1) - 2, 1);
-    const newY = d.getFullYear();
-    const newM = String(d.getMonth() + 1).padStart(2, '0');
-    setCurrentMonth(`${newY}-${newM}`);
+    setCurrentMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
   const handleNextMonth = () => {
     const [y, m] = currentMonth.split('-').map(Number);
     const d = new Date(y, m || 1, 1);
-    const newY = d.getFullYear();
-    const newM = String(d.getMonth() + 1).padStart(2, '0');
-    setCurrentMonth(`${newY}-${newM}`);
+    setCurrentMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
   const formatMonthDisplay = (monthStr) => {
@@ -80,291 +78,319 @@ export default function Dashboard() {
     return isNaN(d.getTime()) ? monthStr : d.toLocaleString('default', { month: 'long', year: 'numeric' });
   };
 
+  // Net worth trend: walk the current net worth backwards through real transactions (2-day steps)
+  const trend = useMemo(() => {
+    const pts = 12;
+    const step = 2 * DAY;
+    const now = new Date().getTime();
+    const series = [netWorth];
+    let cur = netWorth;
+    for (let i = 0; i < pts - 1; i++) {
+      const hi = now - i * step, lo = hi - step;
+      let flow = 0;
+      for (const e of expenses) {
+        const t = new Date(e.date).getTime();
+        if (t > lo && t <= hi) flow += e.type === 'credit' ? Number(e.amount) : -Number(e.amount);
+      }
+      cur -= flow;
+      series.unshift(cur);
+    }
+    const first = series[0];
+    const pct = first ? ((netWorth - first) / Math.abs(first)) * 100 : 0;
+    return { series, pct };
+  }, [expenses, netWorth]);
+
+  // Spending for the last 7 days
+  const week = useMemo(() => {
+    const vals: number[] = [];
+    const labels: string[] = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 6; i >= 0; i--) {
+      const d0 = today.getTime() - i * DAY;
+      let sum = 0;
+      for (const e of expenses) {
+        const t = new Date(e.date).getTime();
+        if (e.type !== 'credit' && t >= d0 && t < d0 + DAY) sum += Number(e.amount);
+      }
+      vals.push(sum);
+      labels.push(new Date(d0).toLocaleDateString('en-US', { weekday: 'narrow' }));
+    }
+    return { vals, labels, total: vals.reduce((a, b) => a + b, 0) };
+  }, [expenses]);
+
+  const categories = dashboardSummary?.spent_per_expense_category || [];
+  const donutSegs = useMemo(() => {
+    const list = [...categories].filter((c) => c.spent > 0).sort((a, b) => b.spent - a.spent);
+    const total = list.reduce((a, b) => a + b.spent, 0);
+    if (!total) return [];
+    const top = list.slice(0, 3).map((c, i) => ({ name: c.name, pct: (c.spent / total) * 100, color: DONUT_COLORS[i] }));
+    const rest = list.slice(3).reduce((a, b) => a + b.spent, 0);
+    if (rest > 0) top.push({ name: 'Others', pct: (rest / total) * 100, color: DONUT_COLORS[3] });
+    return top;
+  }, [categories]);
+
+  const openAdd = (t: 'debit' | 'credit') => { setModalType(t); setModalVisible(true); };
+  const heroW = width - 40 - 40;
+
+  const stat = (icon, label, value, color, sub) => (
+    <Card style={styles.tile} pad={14}>
+      <IconBox name={icon} color={color} size={34} />
+      <Text style={styles.tileLabel}>{label}</Text>
+      <Text style={styles.tileValue}>{money(value)}</Text>
+      {sub ? <Text style={styles.tileSub}>{sub}</Text> : null}
+    </Card>
+  );
+
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+    <>
+      <Screen>
         {/* HEADER */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Overview</Text>
-            <Text style={styles.name}>{useStore(state => state.profile?.name) || 'Abdul Hadi'}</Text>
+            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.name}>{profileName || 'Abdul Hadi'}</Text>
           </View>
-          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/profile')}>
-            <LinearGradient colors={['rgba(74, 222, 128, 0.2)', 'rgba(16, 185, 129, 0.05)']} style={styles.profileAvatar}>
-              <Ionicons name="person" size={20} color="#4ADE80" />
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={styles.headBtn} onPress={() => setSavingsModalVisible(true)}>
+              <Ionicons name="sparkles-outline" size={20} color={C.amber} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/profile')}>
+              <LinearGradient colors={['#67E8F9', '#0E7490']} style={styles.avatar}>
+                <Text style={{ color: C.onAcc, fontWeight: '800', fontSize: 16 }}>{(profileName || 'A').charAt(0).toUpperCase()}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* MONTH PICKER */}
-        <View style={styles.monthSelector}>
-          <TouchableOpacity onPress={handlePrevMonth} style={styles.monthBtn}>
-            <Ionicons name="chevron-back" size={20} color="#8A8A9E" />
-          </TouchableOpacity>
-          <Text style={styles.monthText}>
-            {formatMonthDisplay(currentMonth)}
-          </Text>
-          <TouchableOpacity onPress={handleNextMonth} style={styles.monthBtn}>
-            <Ionicons name="chevron-forward" size={20} color="#8A8A9E" />
-          </TouchableOpacity>
+        <MonthBar label={formatMonthDisplay(currentMonth)} onPrev={handlePrevMonth} onNext={handleNextMonth} />
+
+        {/* NET WORTH */}
+        <Hero style={{ marginTop: 14, paddingBottom: 14 }}>
+          <View style={styles.rowSp}>
+            <Label style={{ color: '#a5f3fc' }}>Net worth</Label>
+            <Tag color={trend.pct >= 0 ? C.acc : C.rose} label={`${trend.pct >= 0 ? '+' : ''}${trend.pct.toFixed(1)}% · 24d`} />
+          </View>
+          <Text style={styles.netWorth}>{money(netWorth)}</Text>
+          <View style={{ marginTop: 6, marginHorizontal: -2 }}>
+            <Sparkline data={trend.series} width={heroW} height={52} color={trend.pct >= 0 ? C.acc : C.rose} />
+          </View>
+          <View style={styles.heroStats}>
+            <View><Label>Bank</Label><Text style={styles.heroStat}>{num(totalBalance)}</Text></View>
+            <View><Label>Savings</Label><Text style={styles.heroStat}>{num(savings)}</Text></View>
+            <View style={{ alignItems: 'flex-end' }}><Label>Overspend</Label><Text style={[styles.heroStat, { color: C.rose }]}>{num(totalOverspend)}</Text></View>
+          </View>
+        </Hero>
+
+        {/* QUICK ACTIONS */}
+        <View style={styles.quick}>
+          {[
+            { icon: 'arrow-up-outline', label: 'Expense', color: C.rose, onPress: () => openAdd('debit') },
+            { icon: 'arrow-down-outline', label: 'Income', color: C.acc, onPress: () => openAdd('credit') },
+            { icon: 'people-outline', label: 'Lend', color: C.blue, onPress: () => router.push('/payables' as any) },
+            { icon: 'cash-outline', label: 'Payday', color: C.amber, onPress: () => router.push('/payday') },
+          ].map((q) => (
+            <TouchableOpacity key={q.label} style={{ alignItems: 'center', flex: 1 }} onPress={q.onPress} activeOpacity={0.8}>
+              <IconBox name={q.icon as any} color={q.color} size={52} />
+              <Text style={styles.quickLabel}>{q.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* MAIN ASSET CARD */}
-        <View style={styles.mainCardWrapper}>
-          <LinearGradient colors={['#0F172A', '#1E293B']} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={styles.mainCard}>
-            <LinearGradient colors={['rgba(74,222,128,0.15)', 'transparent']} start={{x: 0.5, y: 0}} end={{x: 0.5, y: 1}} style={styles.cardGlow} />
-            <Text style={styles.mainCardLabel}>Net Worth</Text>
-            <Text style={styles.mainCardAmount}>{fmt(netWorth)}</Text>
-            
-            <View style={styles.mainCardDivider} />
-            
-            <View style={styles.mainCardStats}>
-              <View style={styles.statCol}>
-                <Text style={styles.mainCardSubLabel}>Bank Balances</Text>
-                <Text style={styles.mainCardSubAmount}>{fmt(totalBalance)}</Text>
-              </View>
-              <View style={styles.statColCenter}>
-                <Text style={styles.mainCardSubLabel}>Savings</Text>
-                <Text style={styles.mainCardSubAmount}>{fmt(savings)}</Text>
-              </View>
-              <View style={styles.statColRight}>
-                <Text style={styles.mainCardSubLabel}>Overspend</Text>
-                <Text style={[styles.mainCardSubAmount, {color: '#F87171'}]}>{fmt(totalOverspend)}</Text>
-              </View>
+        {/* LAST 7 DAYS */}
+        <Card pad={14} style={{ marginTop: 12 }}>
+          <View style={styles.rowSp}>
+            <View>
+              <Label>Spending · last 7 days</Label>
+              <Text style={styles.cardValue}>{money(week.total)}</Text>
             </View>
-          </LinearGradient>
-        </View>
+          </View>
+          <View style={{ marginTop: 8 }}>
+            <BarChart values={week.vals} labels={week.labels} highlight={6} height={54} />
+          </View>
+        </Card>
 
-        {/* GRID DASHBOARD */}
+        {/* BUDGET RING */}
+        <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Ring pct={usedPct} size={100} thick={9} color={usedPct > 100 ? C.rose : C.acc}>
+            <Text style={styles.ringNum}>{usedPct}%</Text>
+            <Text style={styles.ringSub}>USED</Text>
+          </Ring>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Label>Monthly budget</Label>
+            <Text style={styles.cardValue}>{money(income)}</Text>
+            <View style={styles.rowSp}>
+              <Text style={styles.mute12}>Spent <Text style={{ color: C.rose, fontWeight: '700' }}>{num(spent)}</Text></Text>
+              <Text style={styles.mute12}>Left <Text style={{ color: remaining < 0 ? C.rose : C.acc, fontWeight: '700' }}>{num(remaining)}</Text></Text>
+            </View>
+            <Bar pct={usedPct} color={usedPct > 100 ? C.rose : C.acc} />
+          </View>
+        </Card>
+
+        {/* TILES */}
         <View style={styles.grid}>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(167, 139, 250, 0.1)'}]}>
-              <Ionicons name="pie-chart" size={20} color="#A78BFA" />
-            </View>
-            <Text style={styles.gridLabel}>Monthly Budget</Text>
-            <Text style={styles.gridAmount}>{fmt(income)}</Text>
-          </View>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(248, 113, 113, 0.1)'}]}>
-              <Ionicons name="cart" size={20} color="#F87171" />
-            </View>
-            <Text style={styles.gridLabel}>Spent so far</Text>
-            <Text style={styles.gridAmount}>{fmt(spent)}</Text>
-          </View>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(251, 191, 36, 0.1)'}]}>
-              <Ionicons name="wallet" size={20} color="#FBBF24" />
-            </View>
-            <Text style={styles.gridLabel}>Total Savings</Text>
-            <Text style={styles.gridAmount}>{fmt(savings)}</Text>
-          </View>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(96, 165, 250, 0.1)'}]}>
-              <Ionicons name="trending-up" size={20} color="#60A5FA" />
-            </View>
-            <Text style={styles.gridLabel}>Owed to Me</Text>
-            <Text style={styles.gridAmount}>{fmt(owedToMe)}</Text>
-          </View>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(248, 113, 113, 0.1)'}]}>
-              <Ionicons name="trending-down" size={20} color="#F87171" />
-            </View>
-            <Text style={styles.gridLabel}>I Owe</Text>
-            <Text style={styles.gridAmount}>{fmt(iOwe)}</Text>
-          </View>
-          <View style={styles.gridItem}>
-            <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 211, 153, 0.1)'}]}>
-              <Ionicons name="cash" size={20} color="#34D399" />
-            </View>
-            <Text style={styles.gridLabel}>Remaining</Text>
-            <Text style={styles.gridAmount}>{fmt(income - spent)}</Text>
-          </View>
+          {stat('arrow-down-outline', 'Income this month', incomeThisMonth, C.acc, null)}
+          {stat('cash-outline', 'Remaining', remaining, remaining < 0 ? C.rose : C.acc, income > 0 ? `${Math.max(0, 100 - usedPct)}% of budget` : null)}
+          {stat('wallet-outline', 'Total savings', savings, C.amber, savingsTarget > 0 ? `of ${money(savingsTarget)} target` : null)}
+          {stat('trending-up-outline', 'Owed to me', owedToMe, C.blue, owedPeople > 0 ? `${owedPeople} ${owedPeople === 1 ? 'person' : 'people'}` : null)}
+          {stat('trending-down-outline', 'I owe', iOwe, C.rose, iOwe === 0 ? 'All settled' : `${owePeople} ${owePeople === 1 ? 'person' : 'people'}`)}
+          {stat('flag-outline', 'Savings target', savingsTarget, C.violet, savingsTarget > 0 ? `${Math.round((savings / savingsTarget) * 100)}% reached` : null)}
         </View>
+
+        {/* DONUT */}
+        {donutSegs.length > 0 && (
+          <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <Donut segs={donutSegs} size={108} thick={15}>
+              <Text style={styles.donutNum}>{num(Math.round(spent / 100) / 10)}k</Text>
+              <Text style={styles.ringSub}>SPENT</Text>
+            </Donut>
+            <View style={{ flex: 1, gap: 8 }}>
+              {donutSegs.map((s) => (
+                <View key={s.name} style={styles.rowSp}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                    <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: s.color }} />
+                    <Text style={{ color: C.text, fontSize: 12.5 }} numberOfLines={1}>{s.name}</Text>
+                  </View>
+                  <Text style={{ color: C.text, fontWeight: '700', fontSize: 12.5 }}>{Math.round(s.pct)}%</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* BANK ACCOUNTS */}
+        {bankAccounts.length > 0 && (
+          <>
+            <SectionRow title="Bank accounts" action="Overview" onAction={() => router.push('/bank-comparison')} />
+            <Card pad={2} style={{ paddingHorizontal: 16 }}>
+              {bankAccounts.map((b, idx) => (
+                <TouchableOpacity key={b.id} activeOpacity={0.8} style={[styles.brow, idx === 0 && { borderTopWidth: 0 }, { flexDirection: 'row', alignItems: 'center', gap: 12 }]} onPress={() => router.push(`/bank-summary?id=${b.id}`)}>
+                  <IconBox name="business-outline" color={[C.blue, C.acc, C.amber][idx % 3]} size={34} />
+                  <Text style={[styles.progressName, { flex: 1 }]}>{b.name}</Text>
+                  <Text style={[styles.progressName, { color: b.balance < 0 ? C.rose : C.text }]}>{money(b.balance)}</Text>
+                </TouchableOpacity>
+              ))}
+            </Card>
+          </>
+        )}
 
         {/* BUDGET PROGRESS */}
-        {dashboardSummary?.spent_per_expense_category && dashboardSummary.spent_per_expense_category.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Budget Progress</Text>
-            <View style={styles.listCard}>
-              {dashboardSummary.spent_per_expense_category.map((sub, idx) => {
+        {categories.length > 0 && (
+          <>
+            <SectionRow title="Budget progress" action="Manage" onAction={() => router.push('/manage')} />
+            <Card pad={4} style={{ paddingHorizontal: 16 }}>
+              {categories.map((sub, idx) => {
                 let perc = 0;
-                if (sub.effective_budget > 0) {
-                  perc = Math.min((sub.spent / sub.effective_budget) * 100, 100);
-                } else if (sub.effective_budget < 0 || sub.spent > 0) {
-                  perc = 100; // Over budget or in deficit
-                } else {
-                  perc = 0; // 0 budget, 0 spent
-                }
+                if (sub.effective_budget > 0) perc = Math.min((sub.spent / sub.effective_budget) * 100, 100);
+                else if (sub.effective_budget < 0 || sub.spent > 0) perc = 100;
                 const isOver = sub.remaining < 0;
+                const col = isOver ? C.rose : perc > 80 ? C.amber : C.acc;
                 return (
-                  <View key={idx} style={[styles.listRow, idx === dashboardSummary.spent_per_expense_category.length - 1 && {borderBottomWidth: 0}]}>
-                    <View style={styles.progressHeader}>
-                      <View>
-                        <Text style={styles.progressName}>{sub.name}</Text>
-                        <Text style={styles.progressAmounts}>
-                          {fmt(sub.spent)} / {fmt(sub.effective_budget)} 
-                          <Text style={{ fontSize: 10, color: '#94A3B8' }}> (Assigned: {fmt(sub.assigned_budget)})</Text>
-                        </Text>
+                  <View key={idx} style={[styles.brow, idx === 0 && { borderTopWidth: 0 }]}>
+                    <View style={styles.rowSp}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <IconBox name={categoryIcon(sub.name) as any} color={col} size={34} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.progressName}>{sub.name}</Text>
+                          <Text style={styles.progressAmounts}>{money(sub.spent)} of {money(sub.assigned_budget)}{sub.effective_budget !== sub.assigned_budget ? ` · effective ${money(sub.effective_budget)}` : ''}</Text>
+                        </View>
                       </View>
-                      <View style={{alignItems: 'flex-end'}}>
-                        <Text style={[styles.progressStatus, { color: isOver ? '#F87171' : '#4ADE80' }]}>
-                          {isOver ? 'Overspent' : 'Remaining'}
-                        </Text>
-                        <Text style={[styles.progressValue, { color: isOver ? '#F87171' : '#4ADE80' }]}>
-                          {fmt(sub.remaining)}
-                        </Text>
-                      </View>
+                      <Tag color={col} label={isOver ? `Over by ${num(Math.abs(sub.remaining))}` : `${num(sub.remaining)} left`} />
                     </View>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: isOver || perc > 90 ? '#F87171' : '#4ADE80' }]} />
-                    </View>
+                    <View style={{ marginTop: 8 }}><Bar pct={perc} color={col} /></View>
                   </View>
                 );
               })}
-            </View>
-          </View>
+            </Card>
+          </>
         )}
 
-        {/* SAVINGS PROGRESS */}
+        {/* SAVINGS GOALS */}
         {dashboardSummary?.savings_progress && dashboardSummary.savings_progress.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Savings Goals</Text>
-            <View style={styles.listCard}>
+          <>
+            <SectionRow title="Savings goals" action="See all" onAction={() => router.push('/savings')} />
+            <Card pad={4} style={{ paddingHorizontal: 16 }}>
               {dashboardSummary.savings_progress.map((sub, idx) => {
                 const val = sub.total_value !== undefined ? sub.total_value : sub.current_saved;
                 const perc = Math.min((val / (sub.target_amount || 1)) * 100, 100);
                 return (
-                  <View key={idx} style={[styles.listRow, idx === dashboardSummary.savings_progress.length - 1 && {borderBottomWidth: 0}]}>
-                    <View style={styles.progressHeader}>
+                  <View key={idx} style={[styles.brow, idx === 0 && { borderTopWidth: 0 }]}>
+                    <View style={styles.rowSp}>
                       <View>
                         <Text style={styles.progressName}>{sub.name}</Text>
-                        <Text style={styles.progressAmounts}>{fmt(val)} / {fmt(sub.target_amount)}</Text>
+                        <Text style={styles.progressAmounts}>{money(val)} / {money(sub.target_amount)}</Text>
                       </View>
                       {sub.lent_out > 0 && (
-                        <View style={{alignItems: 'flex-end'}}>
-                          <Text style={{color: '#60A5FA', fontSize: 11, fontWeight: '500'}}>Lent Out</Text>
-                          <Text style={{color: '#60A5FA', fontSize: 13, fontWeight: 'bold'}}>{fmt(sub.lent_out)}</Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: C.blue, fontSize: 10.5, fontWeight: '600' }}>Lent out</Text>
+                          <Text style={{ color: C.blue, fontSize: 13, fontWeight: '700' }}>{money(sub.lent_out)}</Text>
                         </View>
                       )}
                     </View>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${perc}%`, backgroundColor: '#FBBF24' }]} />
-                    </View>
+                    <View style={{ marginTop: 8 }}><Bar pct={perc} color={C.amber} /></View>
                   </View>
                 );
               })}
-            </View>
-          </View>
+            </Card>
+          </>
         )}
 
-        {/* RECENT TRANSACTIONS */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => router.push('/transactions')}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.listCard}>
-            {expenses.length === 0 ? (
-              <Text style={styles.emptyText}>No recent transactions.</Text>
-            ) : (
-              expenses.slice(0, 5).map((expense, idx) => (
-                <View key={expense.id} style={[styles.transactionItem, idx === Math.min(expenses.length, 5) - 1 && {borderBottomWidth: 0}]}>
-                  <View style={styles.tLeft}>
-                    <View style={styles.iconCircle}>
-                      <Ionicons name={renderIcon(expense.category)} size={18} color="#E2E8F0" />
-                    </View>
-                    <View>
-                      <Text style={styles.tTitle}>{expense.category}</Text>
-                      <Text style={styles.tDate}>{new Date(expense.date).toLocaleDateString()}</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.tAmountExpense, expense.type === 'credit' && { color: '#4ADE80' }]}>
-                    {expense.type === 'credit' ? '+' : ''}{fmt(expense.amount)}
-                  </Text>
+        {/* RECENT */}
+        <SectionRow title="Recent activity" action="See all" onAction={() => router.push('/transactions')} />
+        {expenses.length === 0 ? (
+          <Card>
+            <EmptyState icon="list-outline" title="No recent transactions" sub="Your latest activity will show up here." />
+          </Card>
+        ) : (
+          <Card pad={2} style={{ paddingHorizontal: 16 }}>
+            {expenses.slice(0, 5).map((expense, idx) => (
+              <View key={expense.id} style={[styles.tx, idx === 0 && { borderTopWidth: 0 }]}>
+                <IconBox name={categoryIcon(expense.category) as any} color={expense.type === 'credit' ? C.acc : C.rose} size={42} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tTitle}>{expense.reason || expense.category}</Text>
+                  <Text style={styles.tDate}>{expense.category ? `${expense.category} · ` : ''}{new Date(expense.date).toLocaleDateString()}</Text>
                 </View>
-              ))
-            )}
-          </View>
-        </View>
-      </ScrollView>
+                <Text style={[styles.tAmount, { color: expense.type === 'credit' ? C.acc : C.rose }]}>
+                  {expense.type === 'credit' ? '+ ' : '- '}{money(expense.amount, true)}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        )}
+      </Screen>
 
-      {/* FLOATING ACTION BUTTONS */}
-      <TouchableOpacity style={[styles.fab, { bottom: 104 }]} onPress={() => setSavingsModalVisible(true)}>
-        <LinearGradient colors={['#FBBF24', '#D97706']} style={styles.fabGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-          <Ionicons name="wallet" size={24} color="#0F1015" />
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.fabGradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-          <Ionicons name="add" size={32} color="#0F1015" />
-        </LinearGradient>
-      </TouchableOpacity>
-
-      <AddTransactionModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+      <AddTransactionModal visible={modalVisible} onClose={() => setModalVisible(false)} initialType={modalType} />
       <AddTransactionModal visible={savingsModalVisible} onClose={() => setSavingsModalVisible(false)} isSavingsMode={true} />
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090E' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  greeting: { color: '#8A8A9E', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600' },
-  name: { color: '#F8FAFC', fontSize: 26, fontWeight: '800', marginTop: 4, letterSpacing: -0.5 },
-  profileBtn: { borderRadius: 20, overflow: 'hidden' },
-  profileAvatar: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  
-  monthSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 24, marginBottom: 20, backgroundColor: '#13131A', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  monthBtn: { padding: 8, backgroundColor: '#1C1C26', borderRadius: 10 },
-  monthText: { color: '#F8FAFC', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  
-  mainCardWrapper: { marginHorizontal: 24, borderRadius: 28, elevation: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24, marginBottom: 24 },
-  mainCard: { borderRadius: 28, padding: 28, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  cardGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 100, opacity: 0.8 },
-  mainCardLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
-  mainCardAmount: { color: '#F8FAFC', fontSize: 44, fontWeight: '900', marginTop: 4, letterSpacing: -1 },
-  mainCardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 20 },
-  mainCardStats: { flexDirection: 'row', justifyContent: 'space-between' },
-  statCol: { flex: 1, alignItems: 'flex-start' },
-  statColCenter: { flex: 1, alignItems: 'center' },
-  statColRight: { flex: 1, alignItems: 'flex-end' },
-  mainCardSubLabel: { color: '#94A3B8', fontSize: 11, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  mainCardSubAmount: { color: '#F8FAFC', fontSize: 16, fontWeight: '700' },
-  
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, justifyContent: 'space-between' },
-  gridItem: { backgroundColor: '#13131A', width: '48%', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  iconBox: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  gridLabel: { color: '#8A8A9E', fontSize: 12, marginBottom: 4, fontWeight: '500' },
-  gridAmount: { color: '#F8FAFC', fontSize: 18, fontWeight: '800' },
-  
-  section: { paddingHorizontal: 24, marginTop: 16 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
-  seeAll: { color: '#4ADE80', fontSize: 14, fontWeight: '700' },
-  
-  listCard: { backgroundColor: '#13131A', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  listRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, alignItems: 'center' },
-  progressName: { color: '#E2E8F0', fontSize: 15, fontWeight: '700' },
-  progressAmounts: { color: '#64748B', fontSize: 12, marginTop: 2, fontWeight: '500' },
-  progressStatus: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  progressValue: { fontSize: 14, fontWeight: '800', marginTop: 2 },
-  progressBarBg: { backgroundColor: '#1E293B', height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 3 },
-  
-  transactionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  tLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconCircle: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  tTitle: { color: '#E2E8F0', fontSize: 15, fontWeight: '700' },
-  tDate: { color: '#64748B', fontSize: 12, marginTop: 2, fontWeight: '500' },
-  tAmountExpense: { color: '#F87171', fontSize: 15, fontWeight: '800' },
-  
-  emptyText: { color: '#64748B', textAlign: 'center', padding: 20, fontSize: 14 },
-  
-  fab: { position: 'absolute', bottom: 32, right: 24, width: 60, height: 60, borderRadius: 30, overflow: 'hidden', elevation: 12, shadowColor: '#10B981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16 },
-  fabGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' }
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  greeting: { color: C.mute, fontSize: 13 },
+  name: { color: C.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
+  headBtn: { width: 42, height: 42, borderRadius: 15, backgroundColor: C.s2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  rowSp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  netWorth: { color: C.text, fontSize: 38, fontWeight: '800', letterSpacing: -1.2, marginTop: 6 },
+  heroStats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.09)' },
+  heroStat: { color: C.text, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  quick: { flexDirection: 'row', marginTop: 14, gap: 10 },
+  quickLabel: { color: C.mute, fontSize: 11.5, fontWeight: '700', marginTop: 7 },
+  cardValue: { color: C.text, fontSize: 21, fontWeight: '800', letterSpacing: -0.4, marginTop: 3 },
+  ringNum: { color: C.text, fontSize: 21, fontWeight: '800' },
+  ringSub: { color: C.dim, fontSize: 10, fontWeight: '700' },
+  donutNum: { color: C.text, fontSize: 16, fontWeight: '800' },
+  mute12: { color: C.mute, fontSize: 12.5 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  tile: { width: '48.4%' },
+  tileLabel: { color: C.mute, fontSize: 12, marginTop: 10 },
+  tileValue: { color: C.text, fontSize: 18, fontWeight: '800', marginTop: 2, letterSpacing: -0.3 },
+  tileSub: { color: C.dim, fontSize: 11, marginTop: 4 },
+  brow: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
+  progressName: { color: C.text, fontSize: 14.5, fontWeight: '700' },
+  progressAmounts: { color: C.dim, fontSize: 12, marginTop: 2 },
+  tx: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
+  tTitle: { color: C.text, fontSize: 15, fontWeight: '700' },
+  tDate: { color: C.dim, fontSize: 12, marginTop: 2 },
+  tAmount: { fontSize: 15, fontWeight: '800' },
 });

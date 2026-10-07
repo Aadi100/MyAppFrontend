@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useStore } from '../store/useStore';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Screen, Header, Card, IconBox, MonthBar, Label, PrimaryButton, Tag, Sparkline } from '../ui/kit';
+import { C, alpha, money } from '../ui/theme';
+
+const BANK_COLORS = [C.amber, C.acc, C.blue, C.violet];
 
 export default function BankComparisonScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
-  const [comparison, setComparison] = useState(null);
+  const [comparison, setComparison] = useState<any>(null);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const fetchBankComparison = useStore(state => state.fetchBankComparison);
 
@@ -25,204 +29,159 @@ export default function BankComparisonScreen() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadComparison();
   }, [month]);
 
-  const fmt = (num) => `Rs ${(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const shift = (delta: number) => {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1 + delta, 1);
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+  const monthLabel = (() => {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    return isNaN(d.getTime()) ? month : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  })();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#F8FAFC" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Bank Overview</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={styles.monthSelector}>
-        <TouchableOpacity onPress={() => {
-          const [y, m] = month.split('-').map(Number);
-          const d = new Date(y, (m || 1) - 2, 1);
-          setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-        }} style={styles.monthBtn}>
-          <Ionicons name="chevron-back" size={20} color="#8A8A9E" />
-        </TouchableOpacity>
-        <Text style={styles.monthText}>
-          {(() => {
-            const [y, m] = month.split('-').map(Number);
-            const d = new Date(y, (m || 1) - 1, 1);
-            return isNaN(d.getTime()) ? month : d.toLocaleString('default', { month: 'long', year: 'numeric' });
-          })()}
-        </Text>
-        <TouchableOpacity onPress={() => {
-          const [y, m] = month.split('-').map(Number);
-          const d = new Date(y, m || 1, 1);
-          setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-        }} style={styles.monthBtn}>
-          <Ionicons name="chevron-forward" size={20} color="#8A8A9E" />
-        </TouchableOpacity>
-      </View>
+    <Screen>
+      <Header title="Bank overview" />
+      <MonthBar label={monthLabel} onPrev={() => shift(-1)} onNext={() => shift(1)} />
 
       {loading && !comparison ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#4ADE80" />
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color={C.acc} /></View>
       ) : !comparison ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>Failed to load bank data</Text>
+        <View style={styles.center}>
+          <IconBox name="information-circle-outline" color={C.rose} size={84} />
+          <Text style={styles.errTitle}>Failed to load bank data</Text>
+          <Text style={styles.errSub}>Check your connection and try again.</Text>
+          <PrimaryButton title="Retry" icon="refresh" onPress={loadComparison} small style={{ marginTop: 20, minWidth: 140 }} />
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {comparison.verification_note && (
-            <View style={styles.verificationNoteContainer}>
-              <Ionicons name="information-circle" size={20} color="#60A5FA" style={{ marginRight: 10 }} />
-              <Text style={styles.verificationNoteText}>{comparison.verification_note}</Text>
+        <>
+          {comparison.verification_note ? (
+            <View style={styles.note}>
+              <Ionicons name="information-circle-outline" size={18} color={C.blue} />
+              <Text style={styles.noteText}>{comparison.verification_note}</Text>
             </View>
-          )}
+          ) : null}
 
-          {comparison.banks.map((bank, index) => (
-            <TouchableOpacity 
-              key={bank.id} 
-              activeOpacity={0.9}
-              onPress={() => router.push(`/bank-summary?id=${bank.id}`)}
-            >
-              <LinearGradient 
-                colors={['#1E293B', '#0F172A']} 
-                start={{x: 0, y: 0}} 
-                end={{x: 1, y: 1}} 
-                style={styles.card}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.bankNameWrapper}>
-                    <View style={styles.iconBox}>
-                      <Ionicons name="business" size={18} color="#94A3B8" />
-                    </View>
-                    <View>
-                      <Text style={styles.bankName}>{bank.name}</Text>
-                      <Text style={styles.openingBalance}>Opening: {fmt(bank.calculated_opening_balance || 0)}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.balanceContainer}>
-                    <Text style={[styles.bankBalance, { color: (bank.balance !== undefined ? bank.balance : bank.current_balance) >= 0 ? '#F8FAFC' : '#F87171' }]}>
-                      {fmt(bank.balance !== undefined ? bank.balance : bank.current_balance)}
-                    </Text>
-                    <Text style={styles.balanceLabel}>Current Balance</Text>
-                  </View>
-                </View>
-
-                {bank.overspend_this_month > 0 && (
-                  <View style={styles.overspendWarning}>
-                    <Ionicons name="warning" size={14} color="#FCA5A5" style={{marginRight: 6}} />
-                    <Text style={styles.overspendText}>Overspent this month: {fmt(bank.overspend_this_month)}</Text>
-                  </View>
-                )}
-                
-                <View style={styles.statsGrid}>
-                  <View style={styles.statBox}>
-                    <View style={styles.statIconWrapper}>
-                      <Ionicons name="arrow-down-circle" size={16} color="#4ADE80" />
-                      <Text style={styles.statLabel}>Money In</Text>
-                    </View>
-                    <Text style={[styles.statValue, { color: '#4ADE80' }]}>+{fmt(bank.credited_this_month)}</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <View style={styles.statIconWrapper}>
-                      <Ionicons name="arrow-up-circle" size={16} color="#F87171" />
-                      <Text style={styles.statLabel}>Money Out</Text>
-                    </View>
-                    <Text style={[styles.statValue, { color: '#F87171' }]}>{fmt(bank.debited_this_month)}</Text>
-                  </View>
-                  <View style={styles.statBox}>
-                    <View style={styles.statIconWrapper}>
-                      <Ionicons name="swap-vertical" size={16} color="#60A5FA" />
-                      <Text style={styles.statLabel}>Net Flow</Text>
-                    </View>
-                    <Text style={[styles.statValue, { color: bank.net_this_month >= 0 ? '#4ADE80' : '#F87171' }]}>
-                      {bank.net_this_month >= 0 ? '+' : ''}{fmt(bank.net_this_month)}
-                    </Text>
-                  </View>
-                </View>
-
-                {(bank.category_spend?.length > 0 || bank.category_income?.length > 0) && (
-                  <View style={styles.divider} />
-                )}
-
-                {bank.category_spend?.length > 0 && (
-                  <View style={styles.spendSection}>
-                    <Text style={styles.spendTitle}>Top Spends</Text>
-                    {bank.category_spend.slice(0, 3).map((spend, idx) => (
-                      <View key={idx} style={styles.spendRow}>
-                        <Text style={styles.spendName}>{spend.name}</Text>
-                        <Text style={styles.spendAmountExpense}>{fmt(spend.spent)}</Text>
+          <View style={{ gap: 12, marginTop: 12 }}>
+            {comparison.banks.map((bank, index) => {
+              const balance = bank.balance !== undefined ? bank.balance : bank.current_balance;
+              const inn = Number(bank.credited_this_month || 0);
+              const out = Number(bank.debited_this_month || 0);
+              const col = BANK_COLORS[index % BANK_COLORS.length];
+              return (
+                <TouchableOpacity key={bank.id} activeOpacity={0.9} onPress={() => router.push(`/bank-summary?id=${bank.id}`)}>
+                  <Card>
+                    <View style={styles.rowSp}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <IconBox name="business-outline" color={col} size={42} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.bankName}>{bank.name}</Text>
+                          <Text style={styles.sub12}>Opening {money(bank.calculated_opening_balance || 0)}</Text>
+                        </View>
                       </View>
-                    ))}
-                  </View>
-                )}
-
-                {bank.category_income?.length > 0 && (
-                  <View style={[styles.spendSection, { marginTop: bank.category_spend?.length ? 16 : 0 }]}>
-                    <Text style={styles.spendTitle}>Top Incomes</Text>
-                    {bank.category_income.slice(0, 2).map((income, idx) => (
-                      <View key={idx} style={styles.spendRow}>
-                        <Text style={styles.spendName}>{income.name}</Text>
-                        <Text style={styles.spendAmountIncome}>+{fmt(income.received)}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[styles.bal, { color: balance >= 0 ? C.text : C.rose }]}>{money(balance)}</Text>
+                        <Label style={{ fontSize: 9.5 }}>Current balance</Label>
                       </View>
-                    ))}
-                  </View>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                    </View>
+
+                    <View style={styles.balRow}>
+                      {bank.is_balanced === false || (bank.drift !== undefined && Number(bank.drift) !== 0)
+                        ? <Tag label={`Drift ${money(bank.drift)}`} color={C.rose} />
+                        : <Tag label="Balanced" color={C.acc} />}
+                      {bank.expected_balance !== undefined && Number(bank.drift) !== 0 ? <Text style={styles.sub12}>Expected {money(bank.expected_balance)}</Text> : null}
+                    </View>
+
+                    {bank.monthly_trend?.length > 1 && (
+                      <View style={{ marginTop: 12 }}>
+                        <Label>Net flow trend</Label>
+                        <View style={{ marginTop: 4, marginLeft: -2 }}>
+                          <Sparkline data={bank.monthly_trend.map((m) => Number(m.net) || 0)} width={width - 40 - 34} height={44} color={col} />
+                        </View>
+                        <View style={styles.rowSp}>
+                          <Text style={styles.sub12}>{bank.monthly_trend[0].month}</Text>
+                          <Text style={styles.sub12}>{bank.monthly_trend[bank.monthly_trend.length - 1].month}</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {bank.overspend_this_month > 0 && (
+                      <View style={styles.over}>
+                        <Ionicons name="warning-outline" size={14} color="#FCA5A5" />
+                        <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '600' }}>Overspent this month: {money(bank.overspend_this_month)}</Text>
+                      </View>
+                    )}
+
+                    <View style={styles.stack}>
+                      <View style={{ flex: inn || 0.0001, backgroundColor: C.acc }} />
+                      <View style={{ flex: out || 0.0001, backgroundColor: C.rose }} />
+                    </View>
+
+                    <View style={styles.stats}>
+                      <View><Text style={styles.statLabel}>Money in</Text><Text style={[styles.statValue, { color: C.acc }]}>+{money(inn)}</Text></View>
+                      <View><Text style={styles.statLabel}>Money out</Text><Text style={[styles.statValue, { color: C.rose }]}>{money(out)}</Text></View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.statLabel}>Net flow</Text>
+                        <Text style={[styles.statValue, { color: bank.net_this_month >= 0 ? C.blue : C.rose }]}>{bank.net_this_month >= 0 ? '+' : ''}{money(bank.net_this_month)}</Text>
+                      </View>
+                    </View>
+
+                    {bank.category_spend?.length > 0 && (
+                      <View style={{ marginTop: 12 }}>
+                        <Label>Top spends</Label>
+                        {bank.category_spend.slice(0, 3).map((spend, idx) => (
+                          <View key={idx} style={styles.listRow}>
+                            <Text style={styles.listName}>{spend.name}</Text>
+                            <Text style={[styles.listAmt, { color: C.rose }]}>{money(spend.spent)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {bank.category_income?.length > 0 && (
+                      <View style={{ marginTop: 12 }}>
+                        <Label>Top incomes</Label>
+                        {bank.category_income.slice(0, 2).map((income, idx) => (
+                          <View key={idx} style={styles.listRow}>
+                            <Text style={styles.listName}>{income.name}</Text>
+                            <Text style={[styles.listAmt, { color: C.acc }]}>+{money(income.received)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090E' },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 60 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  backBtn: { backgroundColor: '#13131A', width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  title: { color: '#F8FAFC', fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
-  
-  monthSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 24, marginBottom: 24, backgroundColor: '#13131A', borderRadius: 16, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  monthBtn: { padding: 8, backgroundColor: '#1C1C26', borderRadius: 10 },
-  monthText: { color: '#F8FAFC', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: '#94A3B8', fontSize: 16 },
-
-  verificationNoteContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(96, 165, 250, 0.1)', padding: 16, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(96, 165, 250, 0.2)' },
-  verificationNoteText: { color: '#93C5FD', fontSize: 13, flex: 1, lineHeight: 20 },
-  
-  card: { borderRadius: 24, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  bankNameWrapper: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  bankName: { color: '#F8FAFC', fontSize: 18, fontWeight: '700' },
-  openingBalance: { color: '#94A3B8', fontSize: 12, marginTop: 4, fontWeight: '500' },
-  
-  balanceContainer: { alignItems: 'flex-end' },
-  bankBalance: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
-  balanceLabel: { color: '#64748B', fontSize: 11, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
-  
-  overspendWarning: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(248, 113, 113, 0.1)', padding: 12, borderRadius: 12, marginBottom: 20 },
-  overspendText: { color: '#FCA5A5', fontSize: 12, fontWeight: '600' },
-  
-  statsGrid: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.2)', padding: 16, borderRadius: 16 },
-  statBox: { flex: 1, alignItems: 'center' },
-  statIconWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  statLabel: { color: '#94A3B8', fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  statValue: { fontSize: 15, fontWeight: '800' },
-  
-  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 20 },
-  
-  spendSection: {},
-  spendTitle: { color: '#94A3B8', fontSize: 11, fontWeight: '700', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  spendRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  spendName: { color: '#E2E8F0', fontSize: 14, fontWeight: '500' },
-  spendAmountExpense: { color: '#F8FAFC', fontSize: 14, fontWeight: '700' },
-  spendAmountIncome: { color: '#4ADE80', fontSize: 14, fontWeight: '700' },
+  center: { alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+  errTitle: { color: C.text, fontSize: 21, fontWeight: '700', marginTop: 20 },
+  errSub: { color: C.mute, fontSize: 14, marginTop: 8 },
+  note: { flexDirection: 'row', gap: 10, backgroundColor: alpha(C.blue, 0.08), borderWidth: 1, borderColor: alpha(C.blue, 0.2), borderRadius: 16, padding: 12, marginTop: 12, alignItems: 'flex-start' },
+  noteText: { color: '#bfdbfe', fontSize: 12.5, lineHeight: 18, flex: 1 },
+  rowSp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  bankName: { color: C.text, fontSize: 16, fontWeight: '700' },
+  sub12: { color: C.dim, fontSize: 12, marginTop: 2 },
+  bal: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4 },
+  balRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  over: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: 'rgba(251,113,133,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  stack: { flexDirection: 'row', height: 7, borderRadius: 9, overflow: 'hidden', gap: 3, marginTop: 16 },
+  stats: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(0,0,0,0.22)', borderRadius: 16, padding: 12, marginTop: 10 },
+  statLabel: { color: C.dim, fontSize: 11 },
+  statValue: { fontSize: 13, fontWeight: '700', marginTop: 4 },
+  listRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.line },
+  listName: { color: C.mute, fontSize: 13 },
+  listAmt: { fontSize: 13, fontWeight: '700' },
 });

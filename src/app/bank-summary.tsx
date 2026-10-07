@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { Screen, Header, Card, Hero, IconBox, MonthBar, Label, Bar, SectionRow } from '../ui/kit';
+import { C, money, categoryIcon } from '../ui/theme';
 
 export default function BankSummaryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState<any>(null);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const fetchBankSummary = useStore(state => state.fetchBankSummary);
 
@@ -30,135 +32,156 @@ export default function BankSummaryScreen() {
     loadSummary();
   }, [id, month]);
 
-  const fmt = (num) => `Rs ${(num || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const shift = (delta: number) => {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1 + delta, 1);
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+  const monthLabel = (() => {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    return isNaN(d.getTime()) ? month : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  })();
 
   if (loading && !summary) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#4ADE80" />
-      </View>
+      <Screen scroll={false}>
+        <Header title="Bank summary" onBack={() => router.back()} />
+        <View style={styles.center}><ActivityIndicator size="large" color={C.acc} /></View>
+      </Screen>
     );
   }
 
   if (!summary) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ color: '#fff' }}>Failed to load summary</Text>
-      </View>
+      <Screen scroll={false}>
+        <Header title="Bank summary" onBack={() => router.back()} />
+        <View style={styles.center}>
+          <IconBox name="information-circle-outline" color={C.rose} size={84} />
+          <Text style={styles.errTitle}>Failed to load summary</Text>
+        </View>
+      </Screen>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <ScrollView>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{summary.bank.name} Summary</Text>
-          <View style={{ width: 40 }} />
-        </View>
+  const expense = summary.category_breakdown?.expense || [];
+  const incomeCats = summary.category_breakdown?.income || [];
+  const maxExp = Math.max(...expense.map(c => Number(c.spent_this_month) || 0), 1);
+  const maxInc = Math.max(...incomeCats.map(c => Number(c.received_this_month) || 0), 1);
+  const bal = summary.bank.balance || 0;
 
-        <View style={styles.monthSelector}>
-          <TouchableOpacity onPress={() => {
-            const [y, m] = month.split('-').map(Number);
-            const d = new Date(y, (m || 1) - 2, 1);
-            setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-          }} style={styles.monthBtn}><Ionicons name="chevron-back" size={20} color="#8A8A9E" /></TouchableOpacity>
-          <Text style={styles.monthText}>
-            {(() => {
-              const [y, m] = month.split('-').map(Number);
-              const d = new Date(y, (m || 1) - 1, 1);
-              return isNaN(d.getTime()) ? month : d.toLocaleString('default', { month: 'long', year: 'numeric' });
-            })()}
-          </Text>
-          <TouchableOpacity onPress={() => {
-            const [y, m] = month.split('-').map(Number);
-            const d = new Date(y, m || 1, 1);
-            setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-          }} style={styles.monthBtn}><Ionicons name="chevron-forward" size={20} color="#8A8A9E" /></TouchableOpacity>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Current Balance</Text>
-          <Text style={styles.balanceAmount}>{fmt(summary.bank.balance)}</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>This Month</Text>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Credited</Text>
-            <Text style={[styles.statValue, { color: '#4ADE80' }]}>+{fmt(summary.this_month.total_credited)}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Debited</Text>
-            <Text style={[styles.statValue, { color: '#F87171' }]}>-{fmt(summary.this_month.total_debited)}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Net Change</Text>
-            <Text style={[styles.statValue, { color: summary.this_month.net >= 0 ? '#4ADE80' : '#F87171' }]}>
-              {summary.this_month.net > 0 ? '+' : ''}{fmt(summary.this_month.net)}
-            </Text>
-          </View>
-        </View>
-
-        {summary.category_breakdown?.expense?.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Expenses (This Month)</Text>
-            {summary.category_breakdown.expense.map(cat => (
-              <View key={cat.sub_category_id} style={styles.statRow}>
-                <Text style={styles.statLabel}>{cat.name}</Text>
-                <Text style={styles.statValue}>{fmt(cat.spent_this_month)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {summary.category_breakdown?.income?.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Income (This Month)</Text>
-            {summary.category_breakdown.income.map(cat => (
-              <View key={cat.sub_category_id} style={styles.statRow}>
-                <Text style={styles.statLabel}>{cat.name}</Text>
-                <Text style={styles.statValue}>{fmt(cat.received_this_month)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {summary.top_transactions?.largest_debits?.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Largest Debits</Text>
-            {summary.top_transactions.largest_debits.map(tx => (
-              <View key={tx.id} style={styles.statRow}>
-                <View>
-                  <Text style={styles.statLabel}>{tx.reason}</Text>
-                  <Text style={{color: '#8A8A9E', fontSize: 12}}>{new Date(tx.date).toLocaleDateString()}</Text>
-                </View>
-                <Text style={[styles.statValue, { color: '#F87171' }]}>-{fmt(tx.amount)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={{height: 40}} />
-      </ScrollView>
+  const miniStat = (icon, label, value, color) => (
+    <View style={styles.mini}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Ionicons name={icon} size={13} color={color} />
+        <Text style={{ color: C.dim, fontSize: 11 }}>{label}</Text>
+      </View>
+      <Text style={{ color, fontWeight: '700', fontSize: 13.5, marginTop: 4 }}>{value}</Text>
     </View>
+  );
+
+  return (
+    <Screen>
+      <Header title={`${summary.bank.name} summary`} onBack={() => router.back()} />
+      <MonthBar label={monthLabel} onPrev={() => shift(-1)} onNext={() => shift(1)} />
+
+      <Hero style={{ marginTop: 12 }}>
+        <Label style={{ color: '#a5f3fc' }}>Current balance</Label>
+        <Text style={[styles.bal, { color: bal >= 0 ? C.text : C.rose }]}>{money(bal)}</Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+          {miniStat('arrow-down', 'Credited', `+${money(summary.this_month.total_credited)}`, C.acc)}
+          {miniStat('arrow-up', 'Debited', `-${money(summary.this_month.total_debited)}`, C.rose)}
+          {miniStat('swap-vertical', 'Net change', `${summary.this_month.net > 0 ? '+' : ''}${money(summary.this_month.net)}`, summary.this_month.net >= 0 ? C.blue : C.rose)}
+        </View>
+      </Hero>
+
+      {expense.length > 0 && (
+        <>
+          <SectionRow title="Expenses (this month)" />
+          <View style={{ gap: 10 }}>
+            {expense.map(cat => (
+              <Card key={cat.sub_category_id} pad={14}>
+                <View style={styles.rowSp}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <IconBox name={categoryIcon(cat.name) as any} color={C.acc} size={34} />
+                    <Text style={styles.name}>{cat.name}</Text>
+                  </View>
+                  <Text style={styles.amt}>{money(cat.spent_this_month)}</Text>
+                </View>
+                <View style={{ marginTop: 10 }}><Bar pct={(Number(cat.spent_this_month) / maxExp) * 100} color={C.acc} /></View>
+              </Card>
+            ))}
+          </View>
+        </>
+      )}
+
+      {incomeCats.length > 0 && (
+        <>
+          <SectionRow title="Income (this month)" />
+          <View style={{ gap: 10 }}>
+            {incomeCats.map(cat => (
+              <Card key={cat.sub_category_id} pad={14}>
+                <View style={styles.rowSp}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <IconBox name="arrow-down-outline" color={C.acc} size={34} />
+                    <Text style={styles.name}>{cat.name}</Text>
+                  </View>
+                  <Text style={[styles.amt, { color: C.acc }]}>{money(cat.received_this_month)}</Text>
+                </View>
+                <View style={{ marginTop: 10 }}><Bar pct={(Number(cat.received_this_month) / maxInc) * 100} color={C.acc} /></View>
+              </Card>
+            ))}
+          </View>
+        </>
+      )}
+
+      {summary.top_transactions?.largest_debits?.length > 0 && (
+        <>
+          <SectionRow title="Largest debits" />
+          <Card pad={2} style={{ paddingHorizontal: 16 }}>
+            {summary.top_transactions.largest_debits.map((tx, i) => (
+              <View key={tx.id} style={[styles.tx, i === 0 && { borderTopWidth: 0 }]}>
+                <IconBox name="arrow-up-outline" color={C.rose} size={34} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{tx.reason}</Text>
+                  <Text style={styles.date}>{new Date(tx.date).toLocaleDateString()}</Text>
+                </View>
+                <Text style={[styles.amt, { color: C.rose }]}>-{money(tx.amount)}</Text>
+              </View>
+            ))}
+          </Card>
+        </>
+      )}
+
+      {summary.top_transactions?.largest_credits?.length > 0 && (
+        <>
+          <SectionRow title="Largest credits" />
+          <Card pad={2} style={{ paddingHorizontal: 16 }}>
+            {summary.top_transactions.largest_credits.map((tx, i) => (
+              <View key={tx.id} style={[styles.tx, i === 0 && { borderTopWidth: 0 }]}>
+                <IconBox name="arrow-down-outline" color={C.acc} size={34} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{tx.reason}</Text>
+                  <Text style={styles.date}>{new Date(tx.date).toLocaleDateString()}</Text>
+                </View>
+                <Text style={[styles.amt, { color: C.acc }]}>+{money(tx.amount)}</Text>
+              </View>
+            ))}
+          </Card>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B14', padding: 24 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 20 },
-  backBtn: { backgroundColor: '#1E1E2D', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  monthSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, backgroundColor: '#1E1E2D', padding: 12, borderRadius: 16 },
-  monthBtn: { padding: 8 },
-  monthText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  card: { backgroundColor: '#1E1E2D', borderRadius: 20, padding: 20, marginBottom: 16 },
-  cardTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  balanceAmount: { color: '#4ADE80', fontSize: 32, fontWeight: 'bold' },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  statLabel: { color: '#fff', fontSize: 16 },
-  statValue: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  center: { alignItems: 'center', justifyContent: 'center', paddingTop: 120 },
+  errTitle: { color: C.text, fontSize: 20, fontWeight: '700', marginTop: 20 },
+  bal: { fontSize: 36, fontWeight: '800', letterSpacing: -1, marginTop: 6 },
+  mini: { flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 16, padding: 10 },
+  rowSp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { color: C.text, fontSize: 14.5, fontWeight: '700' },
+  date: { color: C.dim, fontSize: 12, marginTop: 2 },
+  amt: { color: C.text, fontSize: 14, fontWeight: '700' },
+  tx: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
 });

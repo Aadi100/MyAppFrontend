@@ -1,15 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
+import { Screen, Input, PrimaryButton, IconBox } from '../ui/kit';
+import { C } from '../ui/theme';
+
+const score = (p: string) => {
+  let s = 0;
+  if (p.length >= 8) s++;
+  if (/[A-Z]/.test(p) && /[a-z]/.test(p)) s++;
+  if (/\d/.test(p)) s++;
+  if (/[^A-Za-z0-9]/.test(p)) s++;
+  return s;
+};
 
 export default function ResetPasswordScreen() {
   const params = useLocalSearchParams();
   const token = params.access_token || params.token || '';
-  
+
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const resetPassword = useStore(state => state.resetPassword);
@@ -17,6 +28,10 @@ export default function ResetPasswordScreen() {
   const handleReset = async () => {
     if (!password) {
       Alert.alert('Error', 'Please enter a new password.');
+      return;
+    }
+    if (confirm && confirm !== password) {
+      Alert.alert('Error', 'Passwords do not match.');
       return;
     }
     if (!token) {
@@ -33,43 +48,36 @@ export default function ResetPasswordScreen() {
     }
   };
 
+  const s = score(password);
+  const col = s <= 1 ? C.rose : s === 2 ? C.amber : C.acc;
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Ionicons name="key" size={60} color="#4ADE80" />
-          <Text style={styles.title}>Set New Password</Text>
-          <Text style={styles.subtitle}>Enter your new password below.</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="New Password" placeholderTextColor="#8A8A9E" value={password} onChangeText={setPassword} secureTextEntry />
-          </View>
-
-          <TouchableOpacity style={styles.loginBtn} onPress={handleReset} disabled={loading}>
-            <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.gradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-              {loading ? <ActivityIndicator color="#12121D" /> : <Text style={styles.loginBtnText}>Reset Password</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+    <Screen tabPad={false} style={{ paddingTop: 36 }}>
+      <View style={{ alignItems: 'center', marginTop: 40 }}>
+        <IconBox name="key-outline" color={C.violet} size={86} />
+        <Text style={styles.title}>Set a new password</Text>
+        <Text style={styles.sub}>Choose something strong you haven&apos;t used before.</Text>
       </View>
-    </KeyboardAvoidingView>
+
+      <View style={{ gap: 12, marginTop: 34 }}>
+        <Input icon="lock-closed-outline" placeholder="New password" value={password} onChangeText={setPassword} secureTextEntry={!show}
+          right={show ? 'eye-off-outline' : 'eye-outline'} onRightPress={() => setShow(!show)} />
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {[0, 1, 2, 3].map(i => <View key={i} style={{ flex: 1, height: 6, borderRadius: 9, backgroundColor: i < s ? col : 'rgba(255,255,255,0.07)' }} />)}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ color: s >= 3 ? C.acc : C.mute, fontSize: 12, fontWeight: '700' }}>{password ? (s <= 1 ? 'Weak password' : s === 2 ? 'Okay password' : 'Strong password') : ' '}</Text>
+          <Text style={{ color: C.dim, fontSize: 12 }}>8+ chars, mixed case, number</Text>
+        </View>
+        <Input icon="lock-closed-outline" placeholder="Confirm password" value={confirm} onChangeText={setConfirm} secureTextEntry={!show}
+          right={confirm && confirm === password ? 'checkmark' : undefined} />
+        <PrimaryButton title="Reset password" onPress={handleReset} loading={loading} style={{ marginTop: 8 }} />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#12121D' },
-  content: { flex: 1, justifyContent: 'center', padding: 24 },
-  header: { alignItems: 'center', marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginTop: 16 },
-  subtitle: { fontSize: 16, color: '#8A8A9E', marginTop: 8, textAlign: 'center' },
-  form: { gap: 16 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E2D', borderRadius: 12, paddingHorizontal: 16, height: 56 },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, color: '#fff', fontSize: 16 },
-  loginBtn: { height: 56, borderRadius: 12, overflow: 'hidden', marginTop: 8 },
-  gradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loginBtnText: { color: '#12121D', fontSize: 16, fontWeight: 'bold' },
+  title: { color: C.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginTop: 24, textAlign: 'center' },
+  sub: { color: C.mute, fontSize: 14, marginTop: 8, textAlign: 'center', lineHeight: 22, maxWidth: 300 },
 });

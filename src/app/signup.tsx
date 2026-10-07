@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
+import { Screen, Header, Input, PrimaryButton } from '../ui/kit';
+import { C } from '../ui/theme';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const signup = useStore(state => state.signup);
@@ -30,61 +31,32 @@ export default function SignupScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <View style={styles.content}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#8A8A9E" />
-        </TouchableOpacity>
-        
-        <View style={styles.header}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Sign up to get started</Text>
-        </View>
+    <Screen tabPad={false}>
+      <View style={{ alignItems: 'flex-start' }}><Header onBack={() => router.back()} title="" /></View>
+      <Text style={styles.title}>Create your{'\n'}account</Text>
+      <Text style={styles.sub}>Start tracking every rupee in minutes.</Text>
 
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#8A8A9E" value={name} onChangeText={setName} />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Phone Number (Optional)" placeholderTextColor="#8A8A9E" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#8A8A9E" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#8A8A9E" value={password} onChangeText={setPassword} secureTextEntry />
-          </View>
-
-          <TouchableOpacity style={styles.loginBtn} onPress={handleSignup} disabled={loading}>
-            <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.gradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-              {loading ? <ActivityIndicator color="#12121D" /> : <Text style={styles.loginBtnText}>Sign Up</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+      <View style={{ gap: 12, marginTop: 26 }}>
+        <Input icon="person-outline" placeholder="Full name" value={name} onChangeText={setName} />
+        <Input icon="call-outline" placeholder="Phone number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <Input icon="mail-outline" placeholder="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+        <Input icon="lock-closed-outline" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!show}
+          right={show ? 'eye-off-outline' : 'eye-outline'} onRightPress={() => setShow(!show)} />
+        <PrimaryButton title="Create account" onPress={handleSignup} loading={loading} style={{ marginTop: 8 }} />
       </View>
-    </KeyboardAvoidingView>
+
+      <View style={styles.foot}>
+        <Text style={{ color: C.mute, fontSize: 14 }}>Already have an account? </Text>
+        <TouchableOpacity onPress={() => router.replace('/login')}><Text style={{ color: C.acc, fontWeight: '700', fontSize: 14 }}>Sign in</Text></TouchableOpacity>
+      </View>
+      <Text style={styles.terms}>By continuing you agree to the Terms of Service{'\n'}and Privacy Policy.</Text>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#12121D' },
-  content: { flex: 1, justifyContent: 'center', padding: 24 },
-  backBtn: { position: 'absolute', top: 50, left: 24, padding: 8, zIndex: 10 },
-  header: { alignItems: 'center', marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  subtitle: { fontSize: 16, color: '#8A8A9E', marginTop: 8 },
-  form: { gap: 16 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E1E2D', borderRadius: 12, paddingHorizontal: 16, height: 56 },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, color: '#fff', fontSize: 16 },
-  loginBtn: { height: 56, borderRadius: 12, overflow: 'hidden', marginTop: 8 },
-  gradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loginBtnText: { color: '#12121D', fontSize: 16, fontWeight: 'bold' },
+  title: { color: C.text, fontSize: 30, fontWeight: '800', letterSpacing: -0.8, lineHeight: 36, marginTop: 8 },
+  sub: { color: C.mute, fontSize: 14, marginTop: 8 },
+  foot: { flexDirection: 'row', justifyContent: 'center', marginTop: 22 },
+  terms: { color: C.dim, fontSize: 12, textAlign: 'center', marginTop: 26, lineHeight: 19 },
 });

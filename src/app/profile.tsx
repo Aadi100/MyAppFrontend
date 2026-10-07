@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
+import { Screen, Header, Field, Input, PrimaryButton, ConfirmDialog } from '../ui/kit';
+import { C } from '../ui/theme';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const profile = useStore(state => state.profile);
   const updateProfile = useStore(state => state.updateProfile);
-  
+
   const [name, setName] = useState(profile?.name || '');
   const [email, setEmail] = useState(profile?.email || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [loading, setLoading] = useState(false);
+  const [logoutAsk, setLogoutAsk] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -36,72 +39,46 @@ export default function ProfileScreen() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My Profile</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Ionicons name="log-out-outline" size={24} color="#F87171" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.avatarContainer}>
-          <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.avatar}>
-            <Text style={styles.avatarText}>{name ? name.charAt(0).toUpperCase() : 'U'}</Text>
-          </LinearGradient>
-          <Text style={styles.profileEmail}>{profile?.email}</Text>
-        </View>
-
-        <View style={styles.form}>
-          <Text style={styles.label}>Full Name</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Name" placeholderTextColor="#8A8A9E" value={name} onChangeText={setName} />
-          </View>
-
-          <Text style={styles.label}>Email Address</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#8A8A9E" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
-          </View>
-
-          <Text style={styles.label}>Phone Number</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="call-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Phone" placeholderTextColor="#8A8A9E" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-          </View>
-
-          <TouchableOpacity style={styles.saveBtn} onPress={handleUpdate} disabled={loading}>
-            <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.gradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-              {loading ? <ActivityIndicator color="#12121D" /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
-            </LinearGradient>
+    <>
+      <Screen tabPad={false}>
+        <Header title="My profile" onBack={() => router.back()} right={
+          <TouchableOpacity onPress={() => setLogoutAsk(true)} style={styles.logout}>
+            <Ionicons name="log-out-outline" size={20} color={C.rose} />
           </TouchableOpacity>
+        } />
+
+        <View style={{ alignItems: 'center', marginTop: 6 }}>
+          <LinearGradient colors={['#67E8F9', '#60A5FA']} style={styles.ring}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{name ? name.charAt(0).toUpperCase() : 'U'}</Text>
+            </View>
+          </LinearGradient>
+          <Text style={styles.name}>{name || 'Your name'}</Text>
+          <Text style={styles.email}>{profile?.email}</Text>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+        <View style={{ marginTop: 14 }}>
+          <Field label="Full name"><Input icon="person-outline" placeholder="Name" value={name} onChangeText={setName} /></Field>
+          <Field label="Email address"><Input icon="mail-outline" placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" /></Field>
+          <Field label="Phone number"><Input icon="call-outline" placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /></Field>
+          <PrimaryButton title="Save changes" onPress={handleUpdate} loading={loading} style={{ marginTop: 24 }} />
+        </View>
+
+        <Text style={styles.version}>Expense Manager · v1.0.0</Text>
+      </Screen>
+
+      <ConfirmDialog visible={logoutAsk} title="Log out?" message="You'll need to sign in again to see your data." confirmLabel="Log out"
+        onCancel={() => setLogoutAsk(false)} onConfirm={() => { setLogoutAsk(false); handleLogout(); }} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090E' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 20, paddingHorizontal: 24, backgroundColor: '#09090E' },
-  title: { fontSize: 24, fontWeight: '800', color: '#F8FAFC', letterSpacing: -0.5 },
-  backBtn: { padding: 4, width: 44, height: 44, borderRadius: 22, backgroundColor: '#13131A', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  logoutBtn: { padding: 4, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(248, 113, 113, 0.1)', justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 24 },
-  avatarContainer: { alignItems: 'center', marginBottom: 40 },
-  avatar: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: '#10B981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  avatarText: { fontSize: 40, fontWeight: '900', color: '#0F1015' },
-  profileEmail: { fontSize: 16, color: '#94A3B8', fontWeight: '500' },
-  form: { gap: 20 },
-  label: { color: '#94A3B8', fontSize: 13, marginBottom: -10, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E293B', borderRadius: 16, paddingHorizontal: 16, height: 60, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  inputIcon: { marginRight: 12 },
-  input: { flex: 1, color: '#F8FAFC', fontSize: 16, fontWeight: '500' },
-  saveBtn: { height: 60, borderRadius: 16, overflow: 'hidden', marginTop: 24, shadowColor: '#10B981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  gradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  saveBtnText: { color: '#0F1015', fontSize: 16, fontWeight: '800' },
+  logout: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(251,113,133,0.1)', borderWidth: 1, borderColor: 'rgba(251,113,133,0.25)', alignItems: 'center', justifyContent: 'center' },
+  ring: { width: 106, height: 106, borderRadius: 53, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#0D1321', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: C.acc, fontSize: 38, fontWeight: '800' },
+  name: { color: C.text, fontSize: 22, fontWeight: '800', marginTop: 14 },
+  email: { color: C.mute, fontSize: 14, marginTop: 4 },
+  version: { color: C.dim, fontSize: 12, textAlign: 'center', marginTop: 26 },
 });

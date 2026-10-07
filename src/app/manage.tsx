@@ -1,22 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import {
+  Screen, Header, Card, IconBox, Tag, Chip, Chips, Field, Input, Seg, GhostBtn, AccentIconBtn, MonthBar,
+  Sheet, SheetButtons, PrimaryButton, ConfirmDialog, EmptyState, Label,
+} from '../ui/kit';
+import { C, alpha, money } from '../ui/theme';
+
+type View_ = 'menu' | 'categories' | 'budgets';
+
+const TILES = [
+  { route: '/savings', icon: 'trophy-outline', title: 'Savings goals', color: C.amber },
+  { route: '/payables', icon: 'people-outline', title: 'Ledger', sub: 'Payables & receivables', color: C.violet },
+  { route: '/vault', icon: 'key-outline', title: 'Password vault', sub: 'Saved logins', color: C.rose },
+  { route: '/payday', icon: 'cash-outline', title: 'Payday', sub: 'Allocate your salary', color: C.acc },
+  { route: '/notes', icon: 'document-text-outline', title: 'Notes', sub: 'Quick notepad', color: C.orange },
+  { route: '/profile', icon: 'person-outline', title: 'Profile', sub: 'Account & security', color: C.blue },
+] as const;
 
 export default function ManageScreen() {
   const router = useRouter();
+  const [view, setView] = useState<View_>('menu');
+
   const banks = useStore(state => state.banks);
   const masterCategories = useStore(state => state.masterCategories);
   const subCategories = useStore(state => state.subCategories);
   const addBank = useStore(state => state.addBank);
   const updateBankAccount = useStore(state => state.updateBankAccount);
   const deleteBankAccount = useStore(state => state.deleteBankAccount);
-  const importTransactions = useStore(state => state.importTransactions);
-  
+
   const monthlyBudgets = useStore(state => state.monthlyBudgets);
   const fetchMonthlyBudgets = useStore(state => state.fetchMonthlyBudgets);
   const setMonthlyBudget = useStore(state => state.setMonthlyBudget);
@@ -32,27 +46,37 @@ export default function ManageScreen() {
   const deleteSubCategory = useStore(state => state.deleteSubCategory);
 
   const [masterCatModalVisible, setMasterCatModalVisible] = useState(false);
-  const [masterCatForm, setMasterCatForm] = useState({ id: null, name: '', type: 'expense' });
+  const [masterCatForm, setMasterCatForm] = useState<any>({ id: null, name: '', type: 'expense' });
 
-  // Complex Modals
   const [bankModalVisible, setBankModalVisible] = useState(false);
-  const [bankForm, setBankForm] = useState({ name: '', initial_balance: '', account_number: '' });
+  const [bankForm, setBankForm] = useState<any>({ name: '', initial_balance: '', account_number: '' });
 
   const [subCatModalVisible, setSubCatModalVisible] = useState(false);
-  const [subCatForm, setSubCatForm] = useState({ master_category_id: '', name: '', assigned_budget: '', default_bank_account_id: '' });
+  const [subCatForm, setSubCatForm] = useState<any>({ master_category_id: '', name: '', assigned_budget: '', default_bank_account_id: '' });
 
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [budgetForm, setBudgetForm] = useState({ sub_category_id: '', amount: '' });
-  
+  const [budgetForm, setBudgetForm] = useState<any>({ sub_category_id: '', amount: '', source_bank_account_id: '' });
+  const [savedForm, setSavedForm] = useState<any>({ id: '', name: '', current_saved: '' });
+  const [savedVisible, setSavedVisible] = useState(false);
+
   const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [transferForm, setTransferForm] = useState({ from_sub_category_id: '', to_sub_category_id: '', amount: '' });
   const transferBudget = useStore(state => state.transferBudget);
 
   const [budgetMonth, setBudgetMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [confirm, setConfirm] = useState<{ title: string; onConfirm: () => void } | null>(null);
 
   useEffect(() => {
     fetchMonthlyBudgets(budgetMonth);
   }, [budgetMonth]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (view !== 'menu') { setView('menu'); return true; }
+      return false;
+    });
+    return () => sub.remove();
+  }, [view]);
 
   const handleAddCategory = () => {
     setMasterCatForm({ id: null, name: '', type: 'expense' });
@@ -70,12 +94,12 @@ export default function ManageScreen() {
   };
 
   const handleAddBudgetModal = () => {
-    setBudgetForm({ sub_category_id: '', amount: '' });
+    setBudgetForm({ sub_category_id: '', amount: '', source_bank_account_id: '' });
     setBudgetModalVisible(true);
   };
 
   const handleEditBudget = (b) => {
-    setBudgetForm({ sub_category_id: b.sub_category_id, amount: b.amount.toString() });
+    setBudgetForm({ sub_category_id: b.sub_category_id, amount: b.amount.toString(), source_bank_account_id: '' });
     setBudgetModalVisible(true);
   };
 
@@ -90,7 +114,7 @@ export default function ManageScreen() {
   };
 
   const handleEditBank = (bank) => {
-    setBankForm({ id: bank.id, name: bank.name, initial_balance: bank.balance?.toString() || '', account_number: bank.account_number || '' });
+    setBankForm({ id: bank.id, name: bank.name, initial_balance: '', account_number: bank.account_number || '', balance: bank.balance?.toString() ?? '', opening_balance: bank.opening_balance?.toString() ?? '', orig_balance: bank.balance?.toString() ?? '', orig_opening: bank.opening_balance?.toString() ?? '' });
     setBankModalVisible(true);
   };
 
@@ -99,514 +123,327 @@ export default function ManageScreen() {
     setMasterCatModalVisible(true);
   };
 
-  const handleDelete = (title, onConfirm) => {
-    Alert.alert(`Delete ${title}?`, "Are you sure? This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: onConfirm }
-    ]);
+  const handleDelete = (title, onConfirm) => setConfirm({ title: `Delete ${title}?`, onConfirm });
+
+  const monthLabel = (() => {
+    const [y, m] = budgetMonth.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    return isNaN(d.getTime()) ? budgetMonth : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  })();
+  const shiftMonth = (delta: number) => {
+    const [y, m] = budgetMonth.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1 + delta, 1);
+    setBudgetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const importTransactionsPDF = useStore(state => state.importTransactionsPDF);
+  const expenseSubs = subCategories.filter(s => masterCategories.find(m => m.id === s.master_category_id)?.type === 'expense');
+  const savingsCount = subCategories.filter(s => masterCategories.find(m => m.id === s.master_category_id)?.type === 'savings').length;
 
+  const navRow = (icon, title, sub, color, badge, onPress, first?: boolean) => (
+    <TouchableOpacity key={title} style={[styles.navRow, first && { borderTopWidth: 0 }]} onPress={onPress} activeOpacity={0.8}>
+      <IconBox name={icon} color={color} size={34} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.navTitle}>{title}</Text>
+        <Text style={styles.navSub}>{sub}</Text>
+      </View>
+      {badge ? <Tag label={badge} color={C.mute} /> : null}
+      <Ionicons name="chevron-forward" size={18} color={C.dim} />
+    </TouchableOpacity>
+  );
 
+  const typeColor = (t) => (t === 'income' ? C.acc : t === 'savings' ? C.amber : C.rose);
+  const typeIcon = (t) => (t === 'income' ? 'arrow-down-outline' : t === 'savings' ? 'trophy-outline' : 'arrow-up-outline');
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.header}>Menu</Text>
+    <>
+      <Screen>
+        {view === 'menu' && (
+          <>
+            <Text style={styles.h1}>Menu</Text>
+            <Text style={styles.sub}>Everything else in your finances</Text>
 
-        {/* Apps Grid */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/savings')}>
-            <LinearGradient colors={['#FBBF24', '#F59E0B']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="wallet" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Savings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/payables')}>
-            <LinearGradient colors={['#8B5CF6', '#7C3AED']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="people" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Payables & Receivables</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/vault')}>
-            <LinearGradient colors={['#EF4444', '#DC2626']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="key" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Vault</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/payday')}>
-            <LinearGradient colors={['#10B981', '#059669']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="cash" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Payday</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/profile')}>
-            <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="person" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ alignItems: 'center', width: '28%', marginBottom: 16 }} onPress={() => router.push('/notes')}>
-            <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.menuIconBg} start={{x:0, y:0}} end={{x:1, y:1}}>
-              <Ionicons name="document-text" size={28} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.menuGridText}>Notes</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={[styles.header, { fontSize: 20, marginBottom: 20 }]}>Settings & Configuration</Text>
-
-        {/* Categories Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="folder-open" size={20} color="#60A5FA" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitle}>Categories</Text>
+            <View style={styles.tiles}>
+              {TILES.map((t) => (
+                <TouchableOpacity key={t.title} style={styles.tileWrap} activeOpacity={0.85} onPress={() => router.push(t.route as any)}>
+                  <Card pad={16}>
+                    <IconBox name={t.icon as any} color={t.color} size={46} />
+                    <Text style={styles.tileTitle}>{t.title}</Text>
+                    <Text style={styles.tileSub}>{t.title === 'Savings goals' ? `${savingsCount} active goal${savingsCount === 1 ? '' : 's'}` : t.sub}</Text>
+                  </Card>
+                </TouchableOpacity>
+              ))}
             </View>
-            <TouchableOpacity onPress={handleAddCategory} style={styles.addButtonIcon}>
-              <Ionicons name="add" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.card}>
-            {masterCategories.length === 0 && <Text style={styles.emptyText}>No categories yet.</Text>}
-            {masterCategories.map((cat, index) => {
-              const subs = (subCategories || []).filter(s => s.master_category_id === cat.id);
-              return (
-                <View key={cat.id} style={[styles.listItemContainer, index === masterCategories.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={styles.listItem}>
-                    <View>
-                      <Text style={styles.itemText}>{cat.name}</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 12, marginTop: 2, textTransform: 'capitalize'}}>{cat.type || 'Expense'}</Text>
+
+            <Label style={{ marginTop: 24, marginBottom: 12 }}>Settings & configuration</Label>
+            <Card pad={2} style={{ paddingHorizontal: 16 }}>
+              {navRow('folder-outline', 'Categories', 'Expense, income and savings', C.blue, `${masterCategories.length} groups`, () => setView('categories'), true)}
+              {navRow('pie-chart-outline', 'Monthly budgets', 'Set limits per category', C.acc, `${monthlyBudgets.length} set`, () => setView('budgets'))}
+              {navRow('business-outline', 'Bank accounts', 'Balances and defaults', C.amber, `${banks.length}`, () => setView('budgets'))}
+            </Card>
+          </>
+        )}
+
+        {view === 'categories' && (
+          <>
+            <Header title="Categories" onBack={() => setView('menu')} right={<AccentIconBtn icon="add" onPress={handleAddCategory} />} />
+            {masterCategories.length === 0 && <EmptyState icon="folder-outline" title="No categories yet" sub="Create your first category group." action="New category" onAction={handleAddCategory} />}
+            <View style={{ gap: 12 }}>
+              {masterCategories.map((cat) => {
+                const subs = (subCategories || []).filter(s => s.master_category_id === cat.id);
+                const col = typeColor(cat.type);
+                return (
+                  <Card key={cat.id} pad={14}>
+                    <View style={styles.rowSp}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <IconBox name={typeIcon(cat.type) as any} color={col} size={34} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.catTitle}>{cat.name}</Text>
+                          <Text style={styles.navSub}>{subs.length} sub-categor{subs.length === 1 ? 'y' : 'ies'} · {cat.type || 'expense'}</Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <GhostBtn icon="pencil-outline" onPress={() => handleEditCategory(cat)} />
+                        <GhostBtn icon="trash-outline" danger onPress={() => handleDelete(cat.name, () => deleteMasterCategory(cat.id))} />
+                        <AccentIconBtn icon="add" onPress={() => handleAddSubCategory(cat.id)} />
+                      </View>
                     </View>
-                    <View style={styles.actionRow}>
-                      <TouchableOpacity onPress={() => handleEditCategory(cat)} style={styles.iconBtn}><Ionicons name="pencil" size={16} color="#8A8A9E" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDelete(cat.name, () => deleteMasterCategory(cat.id))} style={styles.iconBtn}><Ionicons name="trash" size={16} color="#F87171" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleAddSubCategory(cat.id)} style={styles.iconBtn}><Ionicons name="add" size={20} color="#4ADE80" /></TouchableOpacity>
-                    </View>
-                  </View>
-                  {/* Subcategories */}
-                  {subs.length > 0 && (
-                    <View style={styles.subCatContainer}>
-                      {subs.map(sub => (
-                        <View key={sub.id} style={styles.subCatRow}>
-                          <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                    {subs.length > 0 && (
+                      <View style={{ marginTop: 10 }}>
+                        {subs.map(sub => (
+                          <View key={sub.id} style={styles.subRow}>
                             <View style={styles.treeLine} />
-                            <Text style={styles.subCatText}>{sub.name}</Text>
-                          </View>
-                          <View style={styles.actionRow}>
+                            <Text style={styles.subText}>{sub.name}</Text>
                             {cat.type === 'savings' && (
-                              <TouchableOpacity onPress={() => updateSavingsCategory({ id: sub.id, invested: !sub.invested })} style={styles.iconBtn}>
-                                <Text style={{fontSize: 10, color: sub.invested ? '#4ADE80' : '#94A3B8', fontWeight: 'bold'}}>{sub.invested ? 'INVESTED' : 'LIQUID'}</Text>
+                              <TouchableOpacity onPress={() => { setSavedForm({ id: sub.id, name: sub.name, current_saved: String(sub.current_saved ?? 0) }); setSavedVisible(true); }}>
+                                <Tag label={`Saved ${money(sub.current_saved || 0)}`} color={C.amber} />
                               </TouchableOpacity>
                             )}
-                            <TouchableOpacity onPress={() => handleEditSubCategory(sub)} style={styles.iconBtn}><Ionicons name="pencil" size={14} color="#8A8A9E" /></TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleDelete(sub.name, () => deleteSubCategory(sub.id))} style={styles.iconBtn}><Ionicons name="trash" size={14} color="#F87171" /></TouchableOpacity>
+                            <GhostBtn icon="pencil-outline" onPress={() => handleEditSubCategory(sub)} />
+                            <GhostBtn icon="trash-outline" danger onPress={() => handleDelete(sub.name, () => deleteSubCategory(sub.id))} />
                           </View>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Monthly Budgets Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="pie-chart" size={20} color="#34D399" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitle}>Monthly Budgets</Text>
+                        ))}
+                      </View>
+                    )}
+                  </Card>
+                );
+              })}
             </View>
-            <View style={{flexDirection: 'row'}}>
-              <TouchableOpacity onPress={handleTransferModal} style={[styles.addButtonIcon, { marginRight: 8, backgroundColor: '#3B82F6' }]}>
-                <Ionicons name="swap-horizontal" size={20} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddBudgetModal} style={styles.addButtonIcon}>
-                <Ionicons name="add" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <TouchableOpacity onPress={() => {
-              const [y, m] = budgetMonth.split('-').map(Number);
-              const d = new Date(y, (m || 1) - 2, 1);
-              setBudgetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-            }} style={{ padding: 8 }}><Ionicons name="chevron-back" size={20} color="#8A8A9E" /></TouchableOpacity>
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>
-              {(() => {
-                const [y, m] = budgetMonth.split('-').map(Number);
-                const d = new Date(y, (m || 1) - 1, 1);
-                return isNaN(d.getTime()) ? budgetMonth : d.toLocaleString('default', { month: 'long', year: 'numeric' });
-              })()}
-            </Text>
-            <TouchableOpacity onPress={() => {
-              const [y, m] = budgetMonth.split('-').map(Number);
-              const d = new Date(y, m || 1, 1);
-              setBudgetMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-            }} style={{ padding: 8 }}><Ionicons name="chevron-forward" size={20} color="#8A8A9E" /></TouchableOpacity>
-          </View>
+          </>
+        )}
 
-          <View style={styles.card}>
-            {monthlyBudgets.length === 0 && <Text style={styles.emptyText}>No budget allocations for this month.</Text>}
-            {monthlyBudgets.map((b, index) => {
-               const catName = subCategories.find(s => s.id === b.sub_category_id)?.name || 'Unknown';
-               return (
-                  <View key={b.id} style={[styles.listItem, index === monthlyBudgets.length - 1 && { borderBottomWidth: 0 }]}>
-                    <View>
-                      <Text style={styles.itemText}>{catName}</Text>
-                      <Text style={{color: '#8A8A9E', fontSize: 12, marginTop: 2}}>Rs {b.amount}</Text>
+        {view === 'budgets' && (
+          <>
+            <Header title="Budgets & banks" onBack={() => setView('menu')} />
+
+            <View style={styles.rowSp}>
+              <Text style={styles.h2}>Monthly budgets</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <AccentIconBtn icon="swap-horizontal" color={C.blue} onPress={handleTransferModal} />
+                <AccentIconBtn icon="add" onPress={handleAddBudgetModal} />
+              </View>
+            </View>
+            <View style={{ marginTop: 12 }}><MonthBar label={monthLabel} onPrev={() => shiftMonth(-1)} onNext={() => shiftMonth(1)} /></View>
+
+            <Card pad={2} style={{ paddingHorizontal: 16, marginTop: 12 }}>
+              {monthlyBudgets.length === 0 && <Text style={styles.emptyText}>No budget allocations for this month.</Text>}
+              {monthlyBudgets.map((b, index) => {
+                const catName = subCategories.find(s => s.id === b.sub_category_id)?.name || 'Unknown';
+                return (
+                  <View key={b.id} style={[styles.navRow, index === 0 && { borderTopWidth: 0 }]}>
+                    <IconBox name="pie-chart-outline" color={C.acc} size={34} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.navTitle}>{catName}</Text>
+                      <Text style={styles.navSub}>Monthly limit</Text>
                     </View>
-                    <View style={styles.actionRow}>
-                      <TouchableOpacity onPress={() => handleEditBudget(b)} style={styles.iconBtn}><Ionicons name="pencil" size={16} color="#8A8A9E" /></TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDelete(`Budget for ${catName}`, () => deleteMonthlyBudget(b.id, budgetMonth))} style={styles.iconBtn}><Ionicons name="trash" size={16} color="#F87171" /></TouchableOpacity>
-                    </View>
+                    <Text style={styles.amt}>{money(b.amount)}</Text>
+                    <GhostBtn icon="pencil-outline" onPress={() => handleEditBudget(b)} />
+                    <GhostBtn icon="trash-outline" danger onPress={() => handleDelete(`budget for ${catName}`, () => deleteMonthlyBudget(b.id, budgetMonth))} />
                   </View>
-               );
-            })}
-          </View>
+                );
+              })}
+            </Card>
+
+            <View style={[styles.rowSp, { marginTop: 24 }]}>
+              <Text style={styles.h2}>Bank accounts</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <AccentIconBtn icon="analytics-outline" color={C.violet} onPress={() => router.push('/bank-comparison')} />
+                <AccentIconBtn icon="add" onPress={handleAddBank} />
+              </View>
+            </View>
+            <Card pad={2} style={{ paddingHorizontal: 16, marginTop: 12 }}>
+              {banks.length === 0 && <Text style={styles.emptyText}>No banks yet.</Text>}
+              {banks.map((bank, index) => (
+                <TouchableOpacity key={bank.id} activeOpacity={0.8} style={[styles.navRow, index === 0 && { borderTopWidth: 0 }]} onPress={() => router.push(`/bank-summary?id=${bank.id}`)}>
+                  <IconBox name="business-outline" color={[C.blue, C.acc, C.amber][index % 3]} size={34} />
+                  <Text style={[styles.navTitle, { flex: 1 }]}>{bank.name}</Text>
+                  <GhostBtn icon="pencil-outline" onPress={() => handleEditBank(bank)} />
+                  <GhostBtn icon="trash-outline" danger onPress={() => handleDelete(bank.name, () => deleteBankAccount(bank.id))} />
+                </TouchableOpacity>
+              ))}
+            </Card>
+          </>
+        )}
+      </Screen>
+
+      {/* Master Category */}
+      <Sheet visible={masterCatModalVisible} onClose={() => setMasterCatModalVisible(false)} title={masterCatForm.id ? 'Edit category' : 'New category'}
+        footer={<SheetButtons onCancel={() => setMasterCatModalVisible(false)} onSave={() => {
+          if (!masterCatForm.name.trim()) return Alert.alert('Wait', 'Name is required.');
+          if (masterCatForm.id) updateMasterCategory({ id: masterCatForm.id, name: masterCatForm.name.trim(), type: masterCatForm.type });
+          else addMasterCategory({ name: masterCatForm.name.trim(), type: masterCatForm.type });
+          setMasterCatModalVisible(false);
+        }} />}>
+        <Field label="Name"><Input icon="folder-outline" placeholder="Category name" value={masterCatForm.name} onChangeText={(v) => setMasterCatForm({ ...masterCatForm, name: v })} autoFocus /></Field>
+        <Field label="Type">
+          <Seg items={[{ key: 'expense', label: 'Expense' }, { key: 'income', label: 'Income' }, { key: 'savings', label: 'Savings' }]} value={masterCatForm.type} onChange={(type) => setMasterCatForm({ ...masterCatForm, type })} colors={{ expense: C.acc, income: C.acc, savings: C.acc }} />
+        </Field>
+        <View style={styles.note}><Ionicons name="information-circle-outline" size={17} color={C.blue} /><Text style={styles.noteText}>Expense categories hold sub-categories with monthly budgets. Savings categories become goals.</Text></View>
+      </Sheet>
+
+      {/* Bank */}
+      <Sheet visible={bankModalVisible} onClose={() => setBankModalVisible(false)} title={bankForm.id ? 'Edit bank account' : 'New bank account'}
+        footer={<PrimaryButton title="Save bank" onPress={async () => {
+          if (!bankForm.name) return Alert.alert('Wait', 'Bank Name is required.');
+          if (bankForm.id) {
+            const payload: any = { id: bankForm.id, name: bankForm.name, account_number: bankForm.account_number || undefined };
+            if (bankForm.balance !== bankForm.orig_balance && bankForm.balance !== '') payload.balance = parseFloat(bankForm.balance) || 0;
+            if (bankForm.opening_balance !== bankForm.orig_opening && bankForm.opening_balance !== '') payload.opening_balance = parseFloat(bankForm.opening_balance) || 0;
+            const ok = await updateBankAccount(payload);
+            if (ok) setBankModalVisible(false);
+          } else {
+            addBank({ name: bankForm.name, account_number: bankForm.account_number || undefined, initial_balance: parseFloat(bankForm.initial_balance) || 0 });
+            setBankModalVisible(false);
+          }
+        }} />}>
+        <Field label="Bank name"><Input icon="business-outline" placeholder="Bank name (e.g. Meezan)" value={bankForm.name} onChangeText={(v) => setBankForm({ ...bankForm, name: v })} autoFocus /></Field>
+        <Field label="Account number (optional)"><Input icon="card-outline" placeholder="Account number" value={bankForm.account_number} onChangeText={(v) => setBankForm({ ...bankForm, account_number: v })} /></Field>
+        {bankForm.id ? (
+          <>
+            <Field label="Balance (manual correction)"><Input icon="cash-outline" placeholder="Current balance" keyboardType="numbers-and-punctuation" value={bankForm.balance} onChangeText={(v) => setBankForm({ ...bankForm, balance: v })} /></Field>
+            <Text style={styles.hint}>Correcting the balance moves the opening balance by the same amount, so it won&apos;t show up as drift.</Text>
+            <Field label="Opening balance"><Input icon="flag-outline" placeholder="Opening balance" keyboardType="numbers-and-punctuation" value={bankForm.opening_balance} onChangeText={(v) => setBankForm({ ...bankForm, opening_balance: v })} /></Field>
+            <Text style={styles.hint}>Saved exactly as entered. If it doesn&apos;t match your transactions, Bank overview shows the gap as drift.</Text>
+          </>
+        ) : (
+          <Field label="Initial balance"><Input icon="cash-outline" placeholder="e.g. 5000" keyboardType="decimal-pad" value={bankForm.initial_balance} onChangeText={(v) => setBankForm({ ...bankForm, initial_balance: v })} /></Field>
+        )}
+      </Sheet>
+
+      {/* Sub category */}
+      <Sheet visible={subCatModalVisible} onClose={() => setSubCatModalVisible(false)} title={subCatForm.id ? 'Edit category' : 'New category'}
+        footer={<PrimaryButton title="Save category" onPress={() => {
+          if (!subCatForm.name) return Alert.alert('Wait', 'Name is required.');
+          const payload = {
+            master_category_id: subCatForm.master_category_id,
+            name: subCatForm.name,
+            assigned_budget: parseFloat(subCatForm.assigned_budget) || 0,
+            default_bank_account_id: subCatForm.default_bank_account_id || undefined,
+          };
+          if (subCatForm.id) updateSubCategory({ id: subCatForm.id, ...payload }); else addSubCategory(payload);
+          setSubCatModalVisible(false);
+        }} />}>
+        <Field label="Category name"><Input icon="pencil-outline" placeholder="e.g. Groceries" value={subCatForm.name} onChangeText={(v) => setSubCatForm({ ...subCatForm, name: v })} autoFocus /></Field>
+        <Field label="Assigned budget"><Input icon="cash-outline" placeholder="e.g. 3000" keyboardType="decimal-pad" value={subCatForm.assigned_budget} onChangeText={(v) => setSubCatForm({ ...subCatForm, assigned_budget: v })} /></Field>
+        <Field label="Default bank (for auto tracking)">
+          <Chips>
+            <Chip label="None" active={!subCatForm.default_bank_account_id} onPress={() => setSubCatForm({ ...subCatForm, default_bank_account_id: '' })} />
+            {banks.map(b => <Chip key={b.id} label={b.name} active={subCatForm.default_bank_account_id === b.id} onPress={() => setSubCatForm({ ...subCatForm, default_bank_account_id: b.id })} />)}
+          </Chips>
+        </Field>
+        <Text style={styles.hint}>New transactions in this category will pre-select the default bank.</Text>
+      </Sheet>
+
+      {/* Budget */}
+      <Sheet visible={budgetModalVisible} onClose={() => setBudgetModalVisible(false)} title={budgetForm.sub_category_id ? 'Edit budget' : 'Allocate budget'}
+        footer={<PrimaryButton title="Save budget" onPress={async () => {
+          if (!budgetForm.sub_category_id || budgetForm.amount === '') return Alert.alert('Wait', 'Category and amount are required.');
+          const amount = parseFloat(budgetForm.amount);
+          if (isNaN(amount) || amount < 0) return Alert.alert('Wait', 'Amount must be zero or more.');
+          const payload: any = { sub_category_id: budgetForm.sub_category_id, amount, for_month: budgetMonth };
+          if (budgetForm.source_bank_account_id) {
+            const cat: any = subCategories.find(s => s.id === budgetForm.sub_category_id);
+            if (!cat?.default_bank_account_id) return Alert.alert('Default bank needed', 'To move money, this category needs a default bank. Set one in Categories first.');
+            payload.source_bank_account_id = budgetForm.source_bank_account_id;
+          }
+          const ok = await setMonthlyBudget(payload);
+          if (ok) setBudgetModalVisible(false);
+        }} />}>
+        <View style={{ marginTop: 10 }}><MonthBar label={monthLabel} onPrev={() => shiftMonth(-1)} onNext={() => shiftMonth(1)} /></View>
+        <Text style={styles.hint}>Setting the same category and month again edits its amount. By default no money moves — a budget row only saves a net-zero record.</Text>
+        <Field label="Category">
+          <Chips>{expenseSubs.map(cat => <Chip key={cat.id} label={cat.name} active={budgetForm.sub_category_id === cat.id} onPress={() => setBudgetForm({ ...budgetForm, sub_category_id: cat.id })} />)}</Chips>
+        </Field>
+        <Field label="Amount"><Input icon="cash-outline" placeholder="e.g. 5000" keyboardType="decimal-pad" value={budgetForm.amount} onChangeText={(v) => setBudgetForm({ ...budgetForm, amount: v })} /></Field>
+        <Field label="Move money from (optional)">
+          <Chips>
+            <Chip label="Don't move money" active={!budgetForm.source_bank_account_id} onPress={() => setBudgetForm({ ...budgetForm, source_bank_account_id: '' })} />
+            {banks.map(b => <Chip key={b.id} label={b.name} active={budgetForm.source_bank_account_id === b.id} onPress={() => setBudgetForm({ ...budgetForm, source_bank_account_id: b.id })} />)}
+          </Chips>
+        </Field>
+        <Text style={styles.hint}>Choosing a bank transfers the amount once from it to the category&apos;s default bank. If they are the same bank, nothing moves.</Text>
+      </Sheet>
+
+      {/* Transfer */}
+      <Sheet visible={transferModalVisible} onClose={() => setTransferModalVisible(false)} title="Transfer budget"
+        footer={<PrimaryButton title="Transfer" onPress={() => {
+          if (!transferForm.from_sub_category_id || !transferForm.to_sub_category_id || !transferForm.amount) return Alert.alert('Wait', 'Please fill all fields.');
+          transferBudget({
+            from_sub_category_id: transferForm.from_sub_category_id,
+            to_sub_category_id: transferForm.to_sub_category_id,
+            amount: parseFloat(transferForm.amount) || 0,
+            for_month: budgetMonth,
+          }).then(() => setTransferModalVisible(false)).catch(() => {});
+        }} />}>
+        <Field label="From category">
+          <Chips>{subCategories.map(cat => <Chip key={cat.id} label={cat.name} active={transferForm.from_sub_category_id === cat.id} onPress={() => setTransferForm({ ...transferForm, from_sub_category_id: cat.id })} />)}</Chips>
+        </Field>
+        <View style={{ alignItems: 'center', marginTop: 14 }}>
+          <View style={styles.swapDot}><Ionicons name="arrow-down" size={19} color={C.acc} /></View>
         </View>
+        <Field label="To category" style={{ marginTop: 6 }}>
+          <Chips>{subCategories.filter(s => s.id !== transferForm.from_sub_category_id).map(cat => <Chip key={cat.id} label={cat.name} active={transferForm.to_sub_category_id === cat.id} onPress={() => setTransferForm({ ...transferForm, to_sub_category_id: cat.id })} />)}</Chips>
+        </Field>
+        <Field label="Amount to transfer"><Input icon="cash-outline" placeholder="e.g. 500" keyboardType="decimal-pad" value={transferForm.amount} onChangeText={(v) => setTransferForm({ ...transferForm, amount: v })} /></Field>
+      </Sheet>
 
-        {/* Banks Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="business" size={20} color="#FBBF24" style={{marginRight: 8}} />
-              <Text style={styles.sectionTitle}>Bank Accounts</Text>
-            </View>
-            <View style={{flexDirection: 'row'}}>
-              <TouchableOpacity onPress={() => router.push('/bank-comparison')} style={[styles.addButtonIcon, { marginRight: 8, backgroundColor: '#8B5CF6' }]}>
-                <Ionicons name="analytics" size={20} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddBank} style={styles.addButtonIcon}>
-                <Ionicons name="add" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.card}>
-            {banks.length === 0 && <Text style={styles.emptyText}>No banks yet.</Text>}
-            {banks.map((bank, index) => (
-              <TouchableOpacity 
-                key={bank.id} 
-                style={[styles.listItem, index === banks.length - 1 && { borderBottomWidth: 0 }]}
-                onPress={() => router.push(`/bank-summary?id=${bank.id}`)}
-              >
-                <Text style={styles.itemText}>{bank.name}</Text>
-                <View style={styles.actionRow}>
-                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleEditBank(bank); }} style={styles.iconBtn}><Ionicons name="pencil" size={16} color="#8A8A9E" /></TouchableOpacity>
-                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); handleDelete(bank.name, () => deleteBankAccount(bank.id)); }} style={styles.iconBtn}><Ionicons name="trash" size={16} color="#F87171" /></TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+      {/* Saved amount */}
+      <Sheet visible={savedVisible} onClose={() => setSavedVisible(false)} title="Set saved amount"
+        footer={<PrimaryButton title="Save" onPress={async () => {
+          const v = parseFloat(savedForm.current_saved);
+          if (isNaN(v) || v < 0) return Alert.alert('Wait', 'Enter a valid amount.');
+          const ok = await updateSavingsCategory({ id: savedForm.id, current_saved: v });
+          if (ok) setSavedVisible(false);
+        }} />}>
+        <Text style={styles.hint}>Manually set how much is saved in &quot;{savedForm.name}&quot;. This only changes the goal&apos;s amount and creates no transaction.</Text>
+        <Field label="Saved amount"><Input icon="trophy-outline" placeholder="e.g. 19260" keyboardType="decimal-pad" value={savedForm.current_saved} onChangeText={(v) => setSavedForm({ ...savedForm, current_saved: v })} autoFocus /></Field>
+      </Sheet>
 
-
-
-
-        <View style={{height: 40}} />
-      </ScrollView>
-
-      {/* Master Category Form Modal */}
-      <Modal visible={masterCatModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{masterCatForm.id ? "Edit Category" : "New Category"}</Text>
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="Category Name"
-              placeholderTextColor="#8A8A9E"
-              value={masterCatForm.name}
-              onChangeText={(v) => setMasterCatForm({...masterCatForm, name: v})}
-              autoFocus
-            />
-            
-            <Text style={styles.sheetLabel}>Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {['expense', 'income', 'savings'].map(type => (
-                <TouchableOpacity 
-                  key={type} 
-                  style={[styles.pill, masterCatForm.type === type && styles.activePill]} 
-                  onPress={() => setMasterCatForm({...masterCatForm, type})}
-                >
-                  <Text style={[styles.pillText, masterCatForm.type === type && styles.activePillText]}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setMasterCatModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => {
-                if (!masterCatForm.name.trim()) return Alert.alert("Wait", "Name is required.");
-                if (masterCatForm.id) {
-                  updateMasterCategory({ id: masterCatForm.id, name: masterCatForm.name.trim(), type: masterCatForm.type });
-                } else {
-                  addMasterCategory({ name: masterCatForm.name.trim(), type: masterCatForm.type });
-                }
-                setMasterCatModalVisible(false);
-              }}>
-                <Text style={styles.buttonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Bank Account Form Modal */}
-      <Modal visible={bankModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{bankForm.id ? "Edit Bank Account" : "New Bank Account"}</Text>
-            <TextInput style={styles.sheetInput} placeholder="Bank Name (e.g. Meezan)" placeholderTextColor="#8A8A9E" value={bankForm.name} onChangeText={(v) => setBankForm({...bankForm, name: v})} autoFocus />
-            <TextInput style={styles.sheetInput} placeholder="Account Number (Optional)" placeholderTextColor="#8A8A9E" value={bankForm.account_number} onChangeText={(v) => setBankForm({...bankForm, account_number: v})} />
-            <TextInput style={styles.sheetInput} placeholder="Initial Balance (e.g. 5000)" placeholderTextColor="#8A8A9E" keyboardType="decimal-pad" value={bankForm.initial_balance} onChangeText={(v) => setBankForm({...bankForm, initial_balance: v})} />
-            
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setBankModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => {
-                if (!bankForm.name) return Alert.alert("Wait", "Bank Name is required.");
-                
-                const payload = { 
-                  name: bankForm.name, 
-                  account_number: bankForm.account_number || undefined, 
-                  initial_balance: parseFloat(bankForm.initial_balance) || 0 
-                };
-
-                if (bankForm.id) {
-                  updateBankAccount({ id: bankForm.id, ...payload });
-                } else {
-                  addBank(payload);
-                }
-                setBankModalVisible(false);
-              }}>
-                <Text style={styles.buttonText}>Save Bank</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* SubCategory Form Modal */}
-      <Modal visible={subCatModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{subCatForm.id ? "Edit Budget Category" : "New Budget Category"}</Text>
-            <TextInput style={styles.sheetInput} placeholder="Category Name (e.g. Groceries)" placeholderTextColor="#8A8A9E" value={subCatForm.name} onChangeText={(v) => setSubCatForm({...subCatForm, name: v})} autoFocus />
-            <TextInput style={styles.sheetInput} placeholder="Assigned Budget (e.g. 3000)" placeholderTextColor="#8A8A9E" keyboardType="decimal-pad" value={subCatForm.assigned_budget} onChangeText={(v) => setSubCatForm({...subCatForm, assigned_budget: v})} />
-            
-            <Text style={styles.sheetLabel}>Default Bank (for auto tracking)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {banks.map(b => (
-                <TouchableOpacity key={b.id} style={[styles.pill, subCatForm.default_bank_account_id === b.id && styles.activePill]} onPress={() => setSubCatForm({...subCatForm, default_bank_account_id: b.id})}>
-                  <Text style={[styles.pillText, subCatForm.default_bank_account_id === b.id && styles.activePillText]}>{b.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setSubCatModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => {
-                if (!subCatForm.name) return Alert.alert("Wait", "Name is required.");
-                
-                const payload = {
-                  master_category_id: subCatForm.master_category_id, 
-                  name: subCatForm.name, 
-                  assigned_budget: parseFloat(subCatForm.assigned_budget) || 0,
-                  default_bank_account_id: subCatForm.default_bank_account_id || undefined
-                };
-
-                if (subCatForm.id) {
-                  updateSubCategory({ id: subCatForm.id, ...payload });
-                } else {
-                  addSubCategory(payload);
-                }
-                setSubCatModalVisible(false);
-              }}>
-                <Text style={styles.buttonText}>Save Category</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Budget Modal */}
-      <Modal visible={budgetModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>{budgetForm.sub_category_id ? "Edit Budget" : "New Budget Allocation"}</Text>
-            <Text style={{color: '#8A8A9E', fontSize: 12, marginBottom: 16}}>
-               Note: Setting a budget for an expense category will automatically create a debit transaction (audit trail) from its default bank account.
-            </Text>
-            
-            <Text style={styles.sheetLabel}>Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {subCategories.filter(s => masterCategories.find(m => m.id === s.master_category_id)?.type === 'expense').map(cat => (
-                <TouchableOpacity 
-                  key={cat.id} 
-                  style={[styles.pill, budgetForm.sub_category_id === cat.id && styles.activePill]} 
-                  onPress={() => setBudgetForm({...budgetForm, sub_category_id: cat.id})}
-                >
-                  <Text style={[styles.pillText, budgetForm.sub_category_id === cat.id && styles.activePillText]}>
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="Amount (e.g. 5000)"
-              placeholderTextColor="#8A8A9E"
-              keyboardType="decimal-pad"
-              value={budgetForm.amount}
-              onChangeText={(v) => setBudgetForm({...budgetForm, amount: v})}
-            />
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setBudgetModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => {
-                if (!budgetForm.sub_category_id || !budgetForm.amount) return Alert.alert("Wait", "Category and amount are required.");
-                setMonthlyBudget({
-                  sub_category_id: budgetForm.sub_category_id,
-                  amount: parseFloat(budgetForm.amount) || 0,
-                  for_month: budgetMonth
-                });
-                setBudgetModalVisible(false);
-              }}>
-                <Text style={styles.buttonText}>Save Budget</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Transfer Budget Modal */}
-      <Modal visible={transferModalVisible} animationType="slide" transparent={true}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.sheetOverlay}>
-          <View style={styles.sheetContent}>
-            <Text style={styles.sheetTitle}>Transfer Budget</Text>
-            
-            <Text style={styles.sheetLabel}>From Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {subCategories.map(cat => (
-                <TouchableOpacity 
-                  key={cat.id} 
-                  style={[styles.pill, transferForm.from_sub_category_id === cat.id && styles.activePill]} 
-                  onPress={() => setTransferForm({...transferForm, from_sub_category_id: cat.id})}
-                >
-                  <Text style={[styles.pillText, transferForm.from_sub_category_id === cat.id && styles.activePillText]}>
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <Text style={styles.sheetLabel}>To Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {subCategories.filter(s => s.id !== transferForm.from_sub_category_id).map(cat => (
-                <TouchableOpacity 
-                  key={cat.id} 
-                  style={[styles.pill, transferForm.to_sub_category_id === cat.id && styles.activePill]} 
-                  onPress={() => setTransferForm({...transferForm, to_sub_category_id: cat.id})}
-                >
-                  <Text style={[styles.pillText, transferForm.to_sub_category_id === cat.id && styles.activePillText]}>
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TextInput
-              style={styles.sheetInput}
-              placeholder="Amount to Transfer (e.g. 500)"
-              placeholderTextColor="#8A8A9E"
-              keyboardType="decimal-pad"
-              value={transferForm.amount}
-              onChangeText={(v) => setTransferForm({...transferForm, amount: v})}
-            />
-
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setTransferModalVisible(false)}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={() => {
-                if (!transferForm.from_sub_category_id || !transferForm.to_sub_category_id || !transferForm.amount) {
-                   return Alert.alert("Wait", "Please fill all fields.");
-                }
-                transferBudget({
-                  from_sub_category_id: transferForm.from_sub_category_id,
-                  to_sub_category_id: transferForm.to_sub_category_id,
-                  amount: parseFloat(transferForm.amount) || 0,
-                  for_month: budgetMonth
-                }).then(() => {
-                  setTransferModalVisible(false);
-                }).catch(e => {
-                  // already handled in useStore
-                });
-              }}>
-                <Text style={styles.buttonText}>Transfer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-    </View>
+      <ConfirmDialog visible={!!confirm} title={confirm?.title || ''} message="Are you sure? This action cannot be undone."
+        onCancel={() => setConfirm(null)} onConfirm={() => { confirm?.onConfirm(); setConfirm(null); }} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090E', paddingHorizontal: 24, paddingTop: 60 },
-  header: { color: '#F8FAFC', fontSize: 28, fontWeight: '800', marginBottom: 30, letterSpacing: -0.5 },
-  section: { marginBottom: 32 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { color: '#E2E8F0', fontSize: 18, fontWeight: '800' },
-  addButtonIcon: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#13131A', borderRadius: 24, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  emptyText: { color: '#64748B', padding: 8, fontStyle: 'italic' },
-  listItemContainer: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', paddingVertical: 12 },
-  listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemText: { color: '#E2E8F0', fontSize: 16, fontWeight: '700' },
-  actionRow: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { padding: 8, marginLeft: 4, backgroundColor: '#1E293B', borderRadius: 12 },
-  subCatContainer: { paddingLeft: 16, marginTop: 12 },
-  subCatRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 6 },
-  treeLine: { width: 12, height: 1, backgroundColor: '#4ADE80', marginRight: 12, opacity: 0.5 },
-  subCatText: { color: '#94A3B8', fontSize: 14, flex: 1, fontWeight: '500' },
-  menuGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
-  menuGridItem: { alignItems: 'center', width: '30%' },
-  menuIconBg: { width: 64, height: 64, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
-  menuGridText: { color: '#F8FAFC', fontSize: 14, fontWeight: '700' },
-  
-  modalContainer: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 20 },
-  modalContent: { backgroundColor: '#13131A', borderRadius: 28, padding: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  modalTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', marginBottom: 20 },
-  input: { backgroundColor: '#1E293B', color: '#F8FAFC', borderRadius: 16, padding: 18, marginBottom: 20, fontSize: 16, fontWeight: '500' },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  cancelButton: { flex: 1, backgroundColor: '#1E293B', padding: 18, borderRadius: 16, alignItems: 'center', marginRight: 8 },
-  saveButton: { flex: 1, backgroundColor: '#4ADE80', padding: 18, borderRadius: 16, alignItems: 'center', marginLeft: 8 },
-  buttonText: { color: '#0F1015', fontWeight: '800', fontSize: 16 },
-  
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheetContent: { backgroundColor: '#13131A', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  sheetTitle: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', marginBottom: 24 },
-  sheetInput: { backgroundColor: '#1E293B', color: '#F8FAFC', padding: 18, borderRadius: 16, fontSize: 16, marginBottom: 16, fontWeight: '500' },
-  sheetLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '600', marginBottom: 12, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  pill: { backgroundColor: '#1E293B', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  activePill: { backgroundColor: 'rgba(74, 222, 128, 0.1)', borderColor: '#4ADE80' },
-  pillText: { color: '#94A3B8', fontWeight: '600' },
-  activePillText: { color: '#4ADE80', fontWeight: '800' }
+  h1: { color: C.text, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
+  h2: { color: C.text, fontSize: 18, fontWeight: '700' },
+  sub: { color: C.mute, fontSize: 14, marginTop: 4 },
+  rowSp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 20 },
+  tileWrap: { width: '48%' },
+  tileTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginTop: 12 },
+  tileSub: { color: C.dim, fontSize: 12, marginTop: 2 },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
+  navTitle: { color: C.text, fontSize: 15, fontWeight: '700' },
+  navSub: { color: C.dim, fontSize: 12, marginTop: 2 },
+  catTitle: { color: C.text, fontSize: 16, fontWeight: '700' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingLeft: 6, borderTopWidth: 1, borderTopColor: C.line },
+  treeLine: { width: 10, height: 2, backgroundColor: alpha(C.acc, 0.7), borderRadius: 2 },
+  subText: { color: C.text, fontSize: 14.5, fontWeight: '500', flex: 1 },
+  amt: { color: C.text, fontSize: 14, fontWeight: '700', marginRight: 4 },
+  emptyText: { color: C.dim, textAlign: 'center', padding: 20, fontSize: 14 },
+  note: { flexDirection: 'row', gap: 10, backgroundColor: alpha(C.blue, 0.08), borderWidth: 1, borderColor: alpha(C.blue, 0.2), borderRadius: 16, padding: 12, marginTop: 16, alignItems: 'flex-start' },
+  noteText: { color: '#bfdbfe', fontSize: 12.5, lineHeight: 18, flex: 1 },
+  hint: { color: C.dim, fontSize: 12, lineHeight: 18, marginTop: 12 },
+  swapDot: { width: 42, height: 42, borderRadius: 21, backgroundColor: alpha(C.acc, 0.14), borderWidth: 1, borderColor: alpha(C.acc, 0.4), alignItems: 'center', justifyContent: 'center' },
 });

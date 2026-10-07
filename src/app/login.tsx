@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
+import { Screen, Input, PrimaryButton } from '../ui/kit';
+import Logo from '../ui/Logo';
+import { C } from '../ui/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const login = useStore(state => state.login);
@@ -31,137 +34,42 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Ionicons name="wallet" size={60} color="#4ADE80" />
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Login to Expense Manager</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#8A8A9E"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8A8A9E" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#8A8A9E"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
-            <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.gradient} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-              {loading ? (
-                <ActivityIndicator color="#12121D" />
-              ) : (
-                <Text style={styles.loginBtnText}>Sign In</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.linksRow}>
-            <TouchableOpacity onPress={() => router.push('/recover')}>
-              <Text style={styles.linkText}>Forgot Password?</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/signup')}>
-              <Text style={styles.linkText}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+    <Screen tabPad={false} style={{ paddingTop: 36 }}>
+      <View style={{ alignItems: 'center', marginTop: 20 }}>
+        <Logo />
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.sub}>Sign in to continue to Expense Manager</Text>
       </View>
-    </KeyboardAvoidingView>
+
+      <View style={{ gap: 12, marginTop: 36 }}>
+        <Input icon="mail-outline" placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+        <Input icon="lock-closed-outline" placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!show}
+          right={show ? 'eye-off-outline' : 'eye-outline'} onRightPress={() => setShow(!show)} />
+        <TouchableOpacity style={{ alignSelf: 'flex-end' }} onPress={() => router.push('/recover')}>
+          <Text style={styles.link}>Forgot password?</Text>
+        </TouchableOpacity>
+        <PrimaryButton title="Sign in" onPress={handleLogin} loading={loading} />
+      </View>
+
+      <View style={styles.divider}>
+        <View style={styles.line} /><Text style={styles.dividerText}>NEW HERE?</Text><View style={styles.line} />
+      </View>
+      <PrimaryButton title="Create an account" variant="ghost" onPress={() => router.push('/signup')} />
+
+      <View style={styles.secure}>
+        <Ionicons name="shield-checkmark-outline" size={15} color={C.dim} />
+        <Text style={{ color: C.dim, fontSize: 12 }}>Your data is encrypted and private</Text>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#12121D',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#8A8A9E',
-    marginTop: 8,
-  },
-  form: {
-    gap: 16,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E1E2D',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 56,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-  },
-  loginBtn: {
-    height: 56,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  gradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loginBtnText: {
-    color: '#12121D',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  linksRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    paddingHorizontal: 8,
-  },
-  linkText: {
-    color: '#4ADE80',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  title: { color: C.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.8, marginTop: 20 },
+  sub: { color: C.mute, fontSize: 14, marginTop: 8 },
+  link: { color: C.acc, fontSize: 13, fontWeight: '700' },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 28 },
+  line: { flex: 1, height: 1, backgroundColor: C.line },
+  dividerText: { color: C.dim, fontSize: 12, letterSpacing: 1 },
+  secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 32 },
 });

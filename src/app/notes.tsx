@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { Screen, Header, Label, Input, EmptyState, ConfirmDialog, PrimaryButton } from '../ui/kit';
+import { C, alpha, GRAD } from '../ui/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const NOTE_COLORS = [
-  { id: 'default', code: '#1E1E2D' },
-  { id: 'red', code: '#3F1D1D' },
-  { id: 'green', code: '#143621' },
-  { id: 'blue', code: '#162842' },
-  { id: 'yellow', code: '#423414' },
-  { id: 'purple', code: '#2A1642' },
+  { id: 'default', code: '#131B2D' },
+  { id: 'red', code: '#3A1A24' },
+  { id: 'green', code: '#0C2E38' },
+  { id: 'blue', code: '#15284A' },
+  { id: 'yellow', code: '#3B3012' },
+  { id: 'purple', code: '#2A1A45' },
 ];
 
 export default function NotesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const notes = useStore(state => state.notes);
   const fetchNotes = useStore(state => state.fetchNotes);
   const createNote = useStore(state => state.createNote);
@@ -22,7 +27,10 @@ export default function NotesScreen() {
   const deleteNote = useStore(state => state.deleteNote);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingNote, setEditingNote] = useState({ id: null, title: '', content: '', color: null, is_pinned: false });
+  const [editingNote, setEditingNote] = useState<any>({ id: null, title: '', content: '', color: null, is_pinned: false });
+  const [deleteAsk, setDeleteAsk] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     fetchNotes();
@@ -50,38 +58,32 @@ export default function NotesScreen() {
     setModalVisible(false);
   };
 
-  const handleDelete = () => {
-    Alert.alert('Delete Note?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        await deleteNote(editingNote.id);
-        setModalVisible(false);
-      }}
-    ]);
+  const confirmDelete = async () => {
+    setDeleteAsk(false);
+    await deleteNote(editingNote.id);
+    setModalVisible(false);
   };
 
   const renderNoteCard = (note) => (
-    <TouchableOpacity 
-      key={note.id} 
-      style={[styles.noteCard, { backgroundColor: note.color || '#1E1E2D' }]}
+    <TouchableOpacity
+      key={note.id}
+      activeOpacity={0.85}
+      style={[styles.noteCard, { backgroundColor: note.color || '#131B2D' }]}
       onPress={() => handleOpenNote(note)}
     >
-      {note.is_pinned && (
-        <View style={styles.pinIcon}>
-          <Ionicons name="pin" size={14} color="#FBBF24" />
-        </View>
-      )}
-      {!!note.title && <Text style={styles.noteTitle}>{note.title}</Text>}
+      {note.is_pinned && <View style={styles.pinIcon}><Ionicons name="pin" size={14} color={C.amber} /></View>}
+      {!!note.title && <Text style={[styles.noteTitle, note.is_pinned && { paddingRight: 20 }]}>{note.title}</Text>}
       <Text style={styles.noteContent} numberOfLines={8}>{note.content}</Text>
     </TouchableOpacity>
   );
 
-  const pinnedNotes = notes.filter(n => n.is_pinned);
-  const unpinnedNotes = notes.filter(n => !n.is_pinned);
+  const filtered = notes.filter(n => !query.trim() || `${n.title || ''} ${n.content || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const pinnedNotes = filtered.filter(n => n.is_pinned);
+  const unpinnedNotes = filtered.filter(n => !n.is_pinned);
 
   const renderMasonry = (items) => {
-    const leftCol = [];
-    const rightCol = [];
+    const leftCol: any[] = [];
+    const rightCol: any[] = [];
     items.forEach((item, idx) => {
       if (idx % 2 === 0) leftCol.push(renderNoteCard(item));
       else rightCol.push(renderNoteCard(item));
@@ -94,158 +96,107 @@ export default function NotesScreen() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Notepad</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  const bg = editingNote.color || '#0B101C';
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+  return (
+    <>
+      <Screen>
+        <Header title="Notes" onBack={() => router.back()} right={
+          <TouchableOpacity style={styles.searchBtn} onPress={() => { setSearchOpen(!searchOpen); if (searchOpen) setQuery(''); }}>
+            <Ionicons name={searchOpen ? 'close' : 'search'} size={19} color={C.text} />
+          </TouchableOpacity>
+        } />
+
+        {searchOpen && <View style={{ marginBottom: 12 }}><Input icon="search" placeholder="Search notes" value={query} onChangeText={setQuery} autoFocus style={{ height: 48 }} /></View>}
+
         {pinnedNotes.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
-            <Text style={styles.sectionTitle}>PINNED</Text>
+          <View style={{ marginBottom: 12 }}>
+            <Label style={{ marginBottom: 10 }}>Pinned</Label>
             {renderMasonry(pinnedNotes)}
           </View>
         )}
-        
+
         {unpinnedNotes.length > 0 && (
           <View>
-            {pinnedNotes.length > 0 && <Text style={styles.sectionTitle}>OTHERS</Text>}
+            {pinnedNotes.length > 0 && <Label style={{ marginBottom: 10 }}>Others</Label>}
             {renderMasonry(unpinnedNotes)}
           </View>
         )}
 
         {notes.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={64} color="#333" />
-            <Text style={styles.emptyText}>No notes yet</Text>
-            <Text style={styles.emptySubText}>Tap the + button to create your first note.</Text>
-          </View>
+          <EmptyState icon="document-text-outline" color={C.orange} title="No notes yet" sub="Tap the + button to create your first note." />
         )}
-      </ScrollView>
+      </Screen>
 
-      {/* FLOATING ACTION BUTTON */}
-      <TouchableOpacity style={styles.fab} onPress={() => handleOpenNote()}>
-        <Ionicons name="add" size={32} color="#0F1015" />
+      <TouchableOpacity style={styles.fab} onPress={() => handleOpenNote()} activeOpacity={0.9}>
+        <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fabIn}>
+          <Ionicons name="add" size={30} color={C.onAcc} />
+        </LinearGradient>
       </TouchableOpacity>
 
-      {/* EDIT NOTE MODAL */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.modalContainer, { backgroundColor: editingNote.color || '#0B0B14' }]}>
+      {/* EDIT NOTE */}
+      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)} statusBarTranslucent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalContainer, { backgroundColor: bg, paddingTop: insets.top + 8 }]}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.iconBtn}>
-              <Ionicons name="chevron-down" size={28} color="#fff" />
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.roundBtn}>
+              <Ionicons name="chevron-down" size={24} color={C.text} />
             </TouchableOpacity>
-            <View style={styles.headerActions}>
-              <TouchableOpacity onPress={() => setEditingNote({ ...editingNote, is_pinned: !editingNote.is_pinned })} style={styles.iconBtn}>
-                <Ionicons name={editingNote.is_pinned ? "pin" : "pin-outline"} size={24} color={editingNote.is_pinned ? "#FBBF24" : "#fff"} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity onPress={() => setEditingNote({ ...editingNote, is_pinned: !editingNote.is_pinned })}
+                style={[styles.roundBtn, editingNote.is_pinned && { backgroundColor: alpha(C.amber, 0.16), borderColor: alpha(C.amber, 0.4) }]}>
+                <Ionicons name={editingNote.is_pinned ? 'pin' : 'pin-outline'} size={20} color={editingNote.is_pinned ? C.amber : C.text} />
               </TouchableOpacity>
               {editingNote.id && (
-                <TouchableOpacity onPress={handleDelete} style={styles.iconBtn}>
-                  <Ionicons name="trash-outline" size={24} color="#F87171" />
+                <TouchableOpacity onPress={() => setDeleteAsk(true)} style={styles.roundBtn}>
+                  <Ionicons name="trash-outline" size={20} color={C.rose} />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={handleSaveNote} style={styles.saveBtn}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
+              <PrimaryButton title="Save" onPress={handleSaveNote} small style={{ minWidth: 76 }} />
             </View>
           </View>
 
-          <ScrollView style={styles.modalBody}>
-            <TextInput
-              style={styles.inputTitle}
-              placeholder="Title"
-              placeholderTextColor="#8A8A9E"
-              value={editingNote.title}
-              onChangeText={v => setEditingNote({ ...editingNote, title: v })}
-            />
-            <TextInput
-              style={styles.inputContent}
-              placeholder="Note"
-              placeholderTextColor="#8A8A9E"
-              value={editingNote.content}
-              onChangeText={v => setEditingNote({ ...editingNote, content: v })}
-              multiline
-              autoFocus={!editingNote.id}
-            />
+          <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+            <TextInput style={styles.inputTitle} placeholder="Title" placeholderTextColor={C.dim} value={editingNote.title}
+              onChangeText={v => setEditingNote({ ...editingNote, title: v })} />
+            <TextInput style={styles.inputContent} placeholder="Note" placeholderTextColor={C.dim} value={editingNote.content}
+              onChangeText={v => setEditingNote({ ...editingNote, content: v })} multiline autoFocus={!editingNote.id} />
           </ScrollView>
 
-          <View style={styles.colorPickerContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorPicker}>
-              {NOTE_COLORS.map(c => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={[styles.colorBubble, { backgroundColor: c.code }, editingNote.color === c.code && styles.colorBubbleSelected]}
-                  onPress={() => setEditingNote({ ...editingNote, color: c.id === 'default' ? null : c.code })}
-                />
-              ))}
-            </ScrollView>
+          <View style={[styles.colorBar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+            {NOTE_COLORS.map(c => {
+              const on = (editingNote.color || null) === (c.id === 'default' ? null : c.code);
+              return (
+                <TouchableOpacity key={c.id} onPress={() => setEditingNote({ ...editingNote, color: c.id === 'default' ? null : c.code })}
+                  style={[styles.colorBubble, { backgroundColor: c.code }, on && { borderColor: '#fff' }]}>
+                  {on ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </KeyboardAvoidingView>
+
+        <ConfirmDialog visible={deleteAsk} title="Delete note?" message="This cannot be undone." onCancel={() => setDeleteAsk(false)} onConfirm={confirmDelete} />
       </Modal>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0B14', paddingHorizontal: 16, paddingTop: 60 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backBtn: { backgroundColor: '#1E1E2D', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  title: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-  
-  sectionTitle: { color: '#8A8A9E', fontSize: 12, fontWeight: 'bold', marginBottom: 12, marginLeft: 8 },
-  masonryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  masonryCol: { flex: 1, paddingHorizontal: 4 },
-  
-  noteCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  pinIcon: { position: 'absolute', top: 12, right: 12, zIndex: 1 },
-  noteTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-  noteContent: { color: '#E2E8F0', fontSize: 14, lineHeight: 20 },
-
-  emptyState: { alignItems: 'center', marginTop: 100 },
-  emptyText: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 16 },
-  emptySubText: { color: '#8A8A9E', fontSize: 14, marginTop: 8 },
-
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#4ADE80',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#4ADE80',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  modalContainer: { flex: 1, paddingTop: Platform.OS === 'android' ? 20 : 0 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { padding: 8, marginLeft: 8 },
-  saveBtn: { backgroundColor: '#4ADE80', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginLeft: 16 },
-  saveBtnText: { color: '#0F1015', fontWeight: 'bold', fontSize: 16 },
-  
+  searchBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: C.s2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  masonryRow: { flexDirection: 'row', gap: 10 },
+  masonryCol: { flex: 1 },
+  noteCard: { borderRadius: 20, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  pinIcon: { position: 'absolute', top: 13, right: 13, zIndex: 1 },
+  noteTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginBottom: 6 },
+  noteContent: { color: '#cfd7e6', fontSize: 13, lineHeight: 20 },
+  fab: { position: 'absolute', right: 20, bottom: 108, shadowColor: '#0891B2', shadowOpacity: 0.7, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  fabIn: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  modalContainer: { flex: 1 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 },
+  roundBtn: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   modalBody: { flex: 1, paddingHorizontal: 24 },
-  inputTitle: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 16, marginTop: 12 },
-  inputContent: { color: '#fff', fontSize: 18, lineHeight: 28, textAlignVertical: 'top', minHeight: 200 },
-  
-  colorPickerContainer: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  colorPicker: { paddingHorizontal: 16, gap: 12 },
-  colorBubble: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)' },
-  colorBubbleSelected: { borderColor: '#fff' },
+  inputTitle: { color: C.text, fontSize: 30, fontWeight: '800', letterSpacing: -0.6, marginTop: 12, marginBottom: 12, padding: 0 },
+  inputContent: { color: '#e8edf7', fontSize: 18, lineHeight: 30, textAlignVertical: 'top', minHeight: 220, padding: 0 },
+  colorBar: { flexDirection: 'row', gap: 12, paddingTop: 14, paddingHorizontal: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.25)' },
+  colorBubble: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
 });

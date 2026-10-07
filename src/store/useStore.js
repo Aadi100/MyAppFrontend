@@ -189,7 +189,21 @@ export const useStore = create((set, get) => ({
       const data = await apiFetch(url);
       set({ dashboardSummary: data });
     } catch (e) {
-      console.error('Failed to fetch dashboard summary:', e);
+      console.warn('Failed to fetch dashboard summary:', e?.message || e);
+      // Server-side failure for this month (e.g. a month with no data): show an empty month
+      // instead of leaving the previous month's numbers on screen. Network errors keep old data.
+      if (month && !(e instanceof TypeError)) {
+        const prev = get().dashboardSummary || {};
+        set({
+          dashboardSummary: {
+            ...prev,
+            total_assigned_budget: 0,
+            total_spent_this_month: 0,
+            total_overspend: 0,
+            spent_per_expense_category: [],
+          },
+        });
+      }
     }
   },
 
@@ -234,8 +248,11 @@ export const useStore = create((set, get) => ({
       get().fetchData();
       get().fetchDashboardSummary(payload.for_month);
       get().fetchMonthlyBudgets(payload.for_month);
+      return true;
     } catch (e) {
       console.error('Failed to set monthly budget:', e);
+      Alert.alert('Error', e.message || 'Failed to save budget.');
+      return false;
     }
   },
 
@@ -407,7 +424,13 @@ export const useStore = create((set, get) => ({
     try {
       await apiFetch('/update-savings-category', { method: 'PUT', body: JSON.stringify(data) });
       get().fetchData();
-    } catch (e) { console.error('Failed to update savings category:', e); }
+      get().fetchDashboardSummary();
+      return true;
+    } catch (e) {
+      console.error('Failed to update savings category:', e);
+      Alert.alert('Error', e.message || 'Failed to update saved amount.');
+      return false;
+    }
   },
 
   allocatePayday: async (payload) => {
@@ -446,8 +469,11 @@ export const useStore = create((set, get) => ({
       });
       get().fetchData();
       get().fetchDashboardSummary();
+      return true;
     } catch (e) {
       console.error('Failed to update bank account:', e);
+      Alert.alert('Error', e.message || 'Failed to update bank account.');
+      return false;
     }
   },
 
@@ -546,8 +572,11 @@ export const useStore = create((set, get) => ({
       });
       get().fetchData();
       get().fetchDashboardSummary();
+      return true;
     } catch (e) {
       console.error('Failed to pay debt:', e);
+      Alert.alert('Error', e.message || 'Failed to record payment.');
+      return false;
     }
   },
 
@@ -559,8 +588,11 @@ export const useStore = create((set, get) => ({
       });
       get().fetchData();
       get().fetchDashboardSummary();
+      return true;
     } catch (e) {
       console.error('Failed to add debt:', e);
+      Alert.alert('Error', e.message || 'Failed to save record.');
+      return false;
     }
   },
 
@@ -569,7 +601,12 @@ export const useStore = create((set, get) => ({
       await apiFetch('/update-debt', { method: 'PUT', body: JSON.stringify(debtData) });
       get().fetchData();
       get().fetchDashboardSummary();
-    } catch (e) { console.error('Failed to update debt:', e); }
+      return true;
+    } catch (e) {
+      console.error('Failed to update debt:', e);
+      Alert.alert('Error', e.message || 'Failed to update record.');
+      return false;
+    }
   },
 
   deleteDebt: async (id) => {
@@ -577,7 +614,12 @@ export const useStore = create((set, get) => ({
       await apiFetch('/delete-debt', { method: 'DELETE', body: JSON.stringify({ id }) });
       get().fetchData();
       get().fetchDashboardSummary();
-    } catch (e) { console.error('Failed to delete debt:', e); }
+      return true;
+    } catch (e) {
+      console.error('Failed to delete debt:', e);
+      Alert.alert('Error', e.message || 'Failed to delete record.');
+      return false;
+    }
   },
 
   // People CRUD
@@ -585,7 +627,12 @@ export const useStore = create((set, get) => ({
     try {
       await apiFetch('/create-person', { method: 'POST', body: JSON.stringify(data) });
       get().fetchData();
-    } catch (e) { console.error('Failed to add person:', e); }
+      return true;
+    } catch (e) {
+      console.error('Failed to add person:', e);
+      Alert.alert('Error', e.message || 'Failed to add person.');
+      return false;
+    }
   },
 
   updatePerson: async (data) => {
@@ -620,8 +667,11 @@ export const useStore = create((set, get) => ({
         body: JSON.stringify(entryData),
       });
       get().fetchPasswordEntries();
+      return true;
     } catch (e) {
       console.error('Failed to create password entry:', e);
+      Alert.alert('Error', e.message || 'Failed to save password.');
+      return false;
     }
   },
 
@@ -631,7 +681,7 @@ export const useStore = create((set, get) => ({
         method: 'POST',
         body: JSON.stringify({ id }),
       });
-      return data.password;
+      return { password: data.password, backup_codes: data.backup_codes || [] };
     } catch (e) {
       console.error('Failed to reveal password:', e);
       return null;
@@ -645,8 +695,11 @@ export const useStore = create((set, get) => ({
         body: JSON.stringify(entryData),
       });
       get().fetchPasswordEntries();
+      return true;
     } catch (e) {
       console.error('Failed to update password entry:', e);
+      Alert.alert('Error', e.message || 'Failed to update password.');
+      return false;
     }
   },
 

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '../store/useStore';
 import { useRouter } from 'expo-router';
+import { Screen, Header, Chip, Chips, Card, IconBox, Input, PrimaryButton, EmptyState, Label } from '../ui/kit';
+import { C, num, categoryIcon } from '../ui/theme';
 
 export default function PaydayScreen() {
   const router = useRouter();
@@ -34,11 +35,12 @@ export default function PaydayScreen() {
   const allocatePayday = useStore(state => state.allocatePayday);
   const receiveIncome = useStore(state => state.receiveIncome);
 
-  const totalSub = Object.values(subAllocations).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
-  const totalSav = Object.values(savingsAllocations).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+  const totalSub = Object.values(subAllocations).reduce((sum: number, val: any) => sum + (parseFloat(val) || 0), 0);
+  const totalSav = Object.values(savingsAllocations).reduce((sum: number, val: any) => sum + (parseFloat(val) || 0), 0);
   const totalAllocated = totalSub + totalSav;
   const totalSalary = parseFloat(salary) || 0;
   const remaining = totalSalary - totalAllocated;
+  const pct = totalSalary > 0 ? (totalAllocated / totalSalary) * 100 : 0;
 
   const handleUpdateSub = (id, val) => setSubAllocations({ ...subAllocations, [id]: val });
   const handleUpdateSav = (id, val) => setSavingsAllocations({ ...savingsAllocations, [id]: val });
@@ -53,11 +55,11 @@ export default function PaydayScreen() {
       .filter(a => a.amount > 0);
 
     if ((sub_category_allocations.length > 0 || savings_allocations.length > 0 || totalSalary > 0) && !selectedBank) {
-      return Alert.alert("Wait", "Please select a bank account to fund or receive.");
+      return Alert.alert('Wait', 'Please select a bank account to fund or receive.');
     }
-    
+
     if (totalSalary > 0 && !selectedIncomeCat) {
-      return Alert.alert("Wait", "Please select an income category for this salary.");
+      return Alert.alert('Wait', 'Please select an income category for this salary.');
     }
 
     if (sub_category_allocations.length > 0 || savings_allocations.length > 0 || totalSalary > 0) {
@@ -80,171 +82,95 @@ export default function PaydayScreen() {
           savings_allocations
         });
       }
-      
-      Alert.alert("Success", "Salary Allocation Saved Successfully!", [
-        { text: "OK", onPress: () => router.back() }
+
+      Alert.alert('Success', 'Salary Allocation Saved Successfully!', [
+        { text: 'OK', onPress: () => router.back() }
       ]);
     } else {
-      Alert.alert("Wait", "Please allocate some amounts first.");
+      Alert.alert('Wait', 'Please allocate some amounts first.');
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Salary Allocation</Text>
-        <View style={{width: 40}} />
-      </View>
+  const row = (icon, name, color, value, onChange) => (
+    <View key={name} style={styles.row}>
+      <IconBox name={icon} color={color} size={34} />
+      <Text style={styles.catName}>{name}</Text>
+      <TextInput style={styles.amountInput} placeholder="Rs 0" placeholderTextColor={C.dim} keyboardType="decimal-pad" value={value} onChangeText={onChange} />
+    </View>
+  );
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#4ADE80', '#10B981']} style={styles.headerCard} start={{x: 0, y: 0}} end={{x: 1, y: 1}}>
-          <Text style={styles.label}>Enter This Month&apos;s Salary</Text>
-          <View style={styles.inputWrapper}>
-            <Text style={styles.currencySymbol}>Rs</Text>
-            <TextInput
-              style={styles.salaryInput}
-              placeholder="0.00"
-              placeholderTextColor="rgba(0,0,0,0.3)"
-              keyboardType="decimal-pad"
-              value={salary}
-              onChangeText={setSalary}
-            />
+  return (
+    <>
+      <Screen style={{ paddingBottom: 200 }}>
+        <Header title="Salary allocation" onBack={() => router.back()} />
+
+        <LinearGradient colors={['#67E8F9', '#0891B2']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.salary}>
+          <Text style={styles.salaryLabel}>THIS MONTH&apos;S SALARY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={styles.rs}>Rs </Text>
+            <TextInput style={styles.salaryInput} placeholder="0" placeholderTextColor="rgba(2,30,38,0.35)" keyboardType="decimal-pad" value={salary} onChangeText={setSalary} />
           </View>
-          <View style={styles.remainingBadge}>
-            <Text style={[styles.remainingText, remaining < 0 && {color: '#F87171'}]}>
-              Unassigned: Rs {remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
+          <View style={styles.track}><View style={{ width: `${Math.min(100, pct)}%`, height: '100%', borderRadius: 9, backgroundColor: remaining < 0 ? C.rose : C.onAcc }} /></View>
+          <View style={styles.salaryFoot}>
+            <Text style={styles.salaryFootText}>Allocated Rs {num(totalAllocated)}</Text>
+            <View style={styles.badge}><Text style={[styles.salaryFootText, remaining < 0 && { color: '#9f1239' }]}>Unassigned Rs {num(remaining)}</Text></View>
           </View>
         </LinearGradient>
 
-        <Text style={styles.sectionTitle}>Budget Month (YYYY-MM)</Text>
-        <View style={{ marginHorizontal: 24, marginBottom: 20 }}>
-          <TextInput 
-            style={{ backgroundColor: '#1E1E2D', color: '#fff', borderRadius: 16, padding: 16, fontSize: 16, fontWeight: 'bold' }}
-            value={forMonth}
-            onChangeText={setForMonth}
-            placeholder="2026-05"
-            placeholderTextColor="#8A8A9E"
-          />
+        <View style={{ marginTop: 16 }}>
+          <Input icon="calendar-outline" placeholder="2026-05" value={forMonth} onChangeText={setForMonth} style={{ height: 48 }} />
         </View>
 
-        <Text style={styles.sectionTitle}>Select Income Category</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20, paddingHorizontal: 24 }}>
-          {incomeCategories.map(cat => (
-            <TouchableOpacity 
-              key={cat.id} 
-              style={[{backgroundColor: '#1E1E2D', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 8}, selectedIncomeCat === cat.id && {backgroundColor: '#4ADE80'}]}
-              onPress={() => setSelectedIncomeCat(cat.id)}
-            >
-              <Text style={[{color: '#8A8A9E', fontWeight: '600'}, selectedIncomeCat === cat.id && {color: '#12121D'}]}>{cat.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <Label style={{ marginTop: 16, marginBottom: 8 }}>Income category</Label>
+        <Chips>{incomeCategories.map(cat => <Chip key={cat.id} label={cat.name} active={selectedIncomeCat === cat.id} onPress={() => setSelectedIncomeCat(cat.id)} />)}</Chips>
 
-        <Text style={styles.sectionTitle}>Fund to/from Bank</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20, paddingHorizontal: 24 }}>
-          {banks.map(b => (
-            <TouchableOpacity 
-              key={b.id} 
-              style={[{backgroundColor: '#1E1E2D', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 8}, selectedBank === b.id && {backgroundColor: '#4ADE80'}]}
-              onPress={() => setSelectedBank(b.id)}
-            >
-              <Text style={[{color: '#8A8A9E', fontWeight: '600'}, selectedBank === b.id && {color: '#12121D'}]}>{b.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <Label style={{ marginTop: 16, marginBottom: 8 }}>Fund to / from bank</Label>
+        <Chips>{banks.map(b => <Chip key={b.id} label={b.name} active={selectedBank === b.id} onPress={() => setSelectedBank(b.id)} />)}</Chips>
 
-        <Text style={styles.sectionTitle}>Assign Budget (Sub-Categories)</Text>
-        
-        {subCategories.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="folder-open-outline" size={48} color="#2A2A3D" />
-            <Text style={{color: '#8A8A9E', textAlign: 'center', marginTop: 12}}>No sub-categories created yet.</Text>
-          </View>
+        <Label style={{ marginTop: 18, marginBottom: 8 }}>Assign budget (sub-categories)</Label>
+        {subCategories.length === 0 ? (
+          <Card><EmptyState icon="folder-open-outline" title="No sub-categories created yet" /></Card>
+        ) : (
+          <Card pad={2} style={{ paddingHorizontal: 14 }}>
+            {subCategories.map((cat, i) => (
+              <View key={cat.id} style={i > 0 ? styles.sep : null}>{row(categoryIcon(cat.name), cat.name, C.acc, subAllocations[cat.id] || '', (v) => handleUpdateSub(cat.id, v))}</View>
+            ))}
+          </Card>
         )}
 
-        <View style={{ marginBottom: 20 }}>
-          {subCategories.map(cat => (
-            <View key={cat.id} style={styles.rowItem}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="pie-chart" size={16} color="#60A5FA" />
-                </View>
-                <Text style={styles.catName}>{cat.name}</Text>
-              </View>
-              <TextInput
-                style={styles.amountInput}
-                placeholder="Rs 0"
-                placeholderTextColor="#8A8A9E"
-                keyboardType="decimal-pad"
-                value={subAllocations[cat.id] || ''}
-                onChangeText={(val) => handleUpdateSub(cat.id, val)}
-              />
-            </View>
-          ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>Fund Savings Goals</Text>
-        <View style={{ marginBottom: 40 }}>
-          {savingsGoals.map(goal => (
-            <View key={goal.id} style={styles.rowItem}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={[styles.iconCircle, {backgroundColor: 'rgba(251, 191, 36, 0.1)'}]}>
-                  <Ionicons name="trophy" size={16} color="#FBBF24" />
-                </View>
-                <Text style={styles.catName}>{goal.name}</Text>
-              </View>
-              <TextInput
-                style={styles.amountInput}
-                placeholder="Rs 0"
-                placeholderTextColor="#8A8A9E"
-                keyboardType="decimal-pad"
-                value={savingsAllocations[goal.id] || ''}
-                onChangeText={(val) => handleUpdateSav(goal.id, val)}
-              />
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+        {savingsGoals.length > 0 && (
+          <>
+            <Label style={{ marginTop: 18, marginBottom: 8 }}>Fund savings goals</Label>
+            <Card pad={2} style={{ paddingHorizontal: 14 }}>
+              {savingsGoals.map((goal, i) => (
+                <View key={goal.id} style={i > 0 ? styles.sep : null}>{row('trophy-outline', goal.name, C.amber, savingsAllocations[goal.id] || '', (v) => handleUpdateSav(goal.id, v))}</View>
+              ))}
+            </Card>
+          </>
+        )}
+      </Screen>
 
       {(subCategories.length > 0 || savingsGoals.length > 0) && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity 
-            style={[styles.saveBtn, remaining < 0 && {backgroundColor: '#F87171'}]} 
-            onPress={handleSave}
-          >
-            <Text style={styles.saveBtnText}>
-              {remaining < 0 ? "You are over budget!" : "Save Budget"}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.bottomBar} pointerEvents="box-none">
+          <PrimaryButton title={remaining < 0 ? 'You are over budget!' : 'Save budget'} variant={remaining < 0 ? 'danger' : 'primary'} onPress={handleSave} />
         </View>
       )}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#09090E' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#13131A', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  title: { color: '#F8FAFC', fontSize: 20, fontWeight: '800' },
-  headerCard: { marginHorizontal: 24, padding: 24, borderRadius: 28, marginBottom: 32, shadowColor: '#4ADE80', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 },
-  label: { color: 'rgba(15,16,21,0.6)', fontSize: 13, fontWeight: '700', textTransform: 'uppercase', marginBottom: 12, letterSpacing: 0.5 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'rgba(15,16,21,0.1)', paddingBottom: 8 },
-  currencySymbol: { fontSize: 40, fontWeight: '900', color: '#0F1015', marginRight: 4 },
-  salaryInput: { color: '#0F1015', fontSize: 40, fontWeight: '900', flex: 1 },
-  remainingBadge: { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, alignSelf: 'flex-start', marginTop: 16 },
-  remainingText: { color: '#0F1015', fontWeight: '800', fontSize: 14 },
-  sectionTitle: { color: '#F8FAFC', fontSize: 18, fontWeight: '800', marginBottom: 16, paddingHorizontal: 24 },
-  emptyState: { alignItems: 'center', marginTop: 40 },
-  rowItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#13131A', padding: 16, borderRadius: 20, marginBottom: 12, marginHorizontal: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-  iconCircle: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(96, 165, 250, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  catName: { color: '#E2E8F0', fontSize: 16, fontWeight: '700' },
-  amountInput: { backgroundColor: '#1E293B', color: '#F8FAFC', borderRadius: 12, padding: 12, width: 120, textAlign: 'right', fontSize: 16, fontWeight: '800' },
-  bottomBar: { padding: 24, backgroundColor: '#09090E', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-  saveBtn: { backgroundColor: '#4ADE80', padding: 20, borderRadius: 20, alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  saveBtnText: { color: '#0F1015', fontSize: 18, fontWeight: '800' }
+  salary: { borderRadius: 28, padding: 20, marginTop: 4, shadowColor: '#0891B2', shadowOpacity: 0.5, shadowRadius: 22, shadowOffset: { width: 0, height: 14 }, elevation: 10 },
+  salaryLabel: { color: 'rgba(2,30,38,0.65)', fontSize: 11, letterSpacing: 1.3, fontWeight: '800' },
+  rs: { color: C.onAcc, fontSize: 26, fontWeight: '800' },
+  salaryInput: { color: C.onAcc, fontSize: 40, fontWeight: '800', letterSpacing: -1, flex: 1, padding: 0 },
+  track: { height: 7, borderRadius: 9, backgroundColor: 'rgba(2,30,38,0.18)', overflow: 'hidden', marginTop: 12 },
+  salaryFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  salaryFootText: { color: C.onAcc, fontSize: 12.5, fontWeight: '700' },
+  badge: { backgroundColor: 'rgba(2,30,38,0.15)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 99 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  sep: { borderTopWidth: 1, borderTopColor: C.line },
+  catName: { color: C.text, fontSize: 14.5, fontWeight: '700', flex: 1 },
+  amountInput: { width: 118, height: 40, borderRadius: 12, backgroundColor: C.s1, borderWidth: 1, borderColor: C.line, color: C.text, textAlign: 'right', paddingHorizontal: 12, fontSize: 14 },
+  bottomBar: { position: 'absolute', left: 20, right: 20, bottom: 104 },
 });
