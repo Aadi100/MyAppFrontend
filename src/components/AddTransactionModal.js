@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Sheet, SheetButtons, Seg, Chip, Chips, Field, Input } from '../ui/kit';
 import { C, alpha } from '../ui/theme';
+import LocalAI from '../services/LocalAI';
 
 const Dropdown = ({ label, items, selectedId, onSelect, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +65,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const createSavingsTransaction = useStore((state) => state.createSavingsTransaction);
 
   React.useEffect(() => {
+    if (visible) LocalAI.init();
     if (visible && editingTransaction) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setType(editingTransaction.type || 'debit');
@@ -90,6 +92,26 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
   const handleTypeChange = (newType) => {
     setType(newType);
     setSelectedSubCatId('');
+  };
+
+  const handleReasonChange = async (text) => {
+    setReason(text);
+    if (!selectedSubCatId && !editingTransaction && text.length > 2) {
+      const aiResult = await LocalAI.predict(text);
+      if (aiResult.prediction && aiResult.confidence > 0.5) {
+        const catName = String(aiResult.prediction);
+        const matchedSub = subCategories.find(s => s.name.toLowerCase().includes(catName.toLowerCase()));
+        if (matchedSub) {
+          setSelectedSubCatId(matchedSub.id);
+          if (matchedSub.default_bank_account_id) {
+            setSelectedBankId(matchedSub.default_bank_account_id);
+          } else {
+            const lastTx = expenses.find(e => e.sub_category_id === matchedSub.id);
+            if (lastTx && lastTx.bank_account_id) setSelectedBankId(lastTx.bank_account_id);
+          }
+        }
+      }
+    }
   };
 
   const handleSave = () => {
@@ -275,7 +297,7 @@ export default function AddTransactionModal({ visible, onClose, editingTransacti
       )}
 
       <View style={{ marginTop: 12 }}>
-        <Input icon="pencil-outline" placeholder="Reason (e.g. Groceries, Salary)" value={reason} onChangeText={setReason} style={{ height: 50 }} />
+        <Input icon="pencil-outline" placeholder="Reason (e.g. Groceries, Salary)" value={reason} onChangeText={handleReasonChange} style={{ height: 50 }} />
       </View>
 
       <Dropdown

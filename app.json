@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "myapp",
+    "name": "My Daily App",
     "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -38,7 +38,17 @@
           "imageWidth": 76
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your Camera to verify your identity.",
+          "enableMicrophonePermission": false
+        }
+      ],
+      "./plugins/withAutofill.js"
     ],
     "experiments": {
       "typedRoutes": true,

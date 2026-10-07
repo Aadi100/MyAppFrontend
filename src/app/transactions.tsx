@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { PieChart } from 'react-native-gifted-charts';
 import { useStore } from '../store/useStore';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { Screen, Header, Seg, Card, Hero, IconBox, Tag, Bar, GhostBtn, Chip, Input, EmptyState, ConfirmDialog, BarChart, Sparkline, Label } from '../ui/kit';
@@ -30,6 +33,33 @@ export default function TransactionsScreen() {
   const deleteExpense = useStore(state => state.deleteExpense);
 
   const getSubCategoryName = (id) => subCategories.find(s => s.id === id)?.name || 'Unknown';
+
+  const handleExportCSV = async () => {
+    try {
+      const headerString = 'Date,Type,Category,Reason,Amount,Note\n';
+      const rowString = expenses.map(e => {
+        const cat = getSubCategoryName(e.sub_category_id);
+        const date = new Date(e.date).toLocaleDateString();
+        const reason = `"${(e.reason || '').replace(/"/g, '""')}"`;
+        const note = `"${(e.note || '').replace(/"/g, '""')}"`;
+        return `${date},${e.type},"${cat}",${reason},${e.amount},${note}`;
+      }).join('\n');
+      
+      const csvString = `${headerString}${rowString}`;
+      const fileUri = FileSystem.documentDirectory + 'transactions_report.csv';
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+      
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri);
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device');
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to export CSV');
+    }
+  };
 
   const expenses = useMemo(() => allExpenses.filter(e => {
     if (typeFilter === 'debit' && e.type === 'credit') return false;
@@ -119,9 +149,14 @@ export default function TransactionsScreen() {
     <>
       <Screen>
         <Header big title="Activity" right={
-          <TouchableOpacity style={styles.searchBtn} onPress={() => { setSearchOpen(!searchOpen); if (searchOpen) setQuery(''); }}>
-            <Ionicons name={searchOpen ? 'close' : 'search'} size={19} color={C.text} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={styles.searchBtn} onPress={handleExportCSV}>
+              <Ionicons name="download-outline" size={19} color={C.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.searchBtn} onPress={() => { setSearchOpen(!searchOpen); if (searchOpen) setQuery(''); }}>
+              <Ionicons name={searchOpen ? 'close' : 'search'} size={19} color={C.text} />
+            </TouchableOpacity>
+          </View>
         } />
 
         {searchOpen && <View style={{ marginBottom: 12 }}><Input icon="search" placeholder="Search reason, note or category" value={query} onChangeText={setQuery} autoFocus style={{ height: 48 }} /></View>}
@@ -147,6 +182,24 @@ export default function TransactionsScreen() {
               <Chip label="Money in" active={typeFilter === 'credit'} onPress={() => setTypeFilter('credit')} />
             </View>
 
+            {filter === 'category' && totalOut > 0 && (
+              <Card pad={14} style={{ marginTop: 12, alignItems: 'center' }}>
+                <Label style={{ alignSelf: 'flex-start' }}>Category Breakdown (Out)</Label>
+                <View style={{ marginTop: 20 }}>
+                  <PieChart
+                    data={Object.keys(grouped).filter(k => grouped[k].out > 0).map((key, i) => {
+                      const colors = ['#38bdf8', '#818cf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#fb923c', '#2dd4bf'];
+                      return { value: grouped[key].out, color: colors[i % colors.length] };
+                    })}
+                    donut
+                    radius={80}
+                    innerRadius={55}
+                    innerCircleColor={C.card}
+                    centerLabelComponent={() => <Text style={{color: C.text, fontSize: 16, fontWeight: '800'}}>{money(totalOut)}</Text>}
+                  />
+                </View>
+              </Card>
+            )}
             {filter === 'month' && (
               <Card pad={14} style={{ marginTop: 12 }}>
                 <Label>Net flow · 6 months</Label>

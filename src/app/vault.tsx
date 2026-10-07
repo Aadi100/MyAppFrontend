@@ -67,7 +67,14 @@ export default function VaultScreen() {
 
   const copy = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', `${label} copied to clipboard.`);
+    Alert.alert('Copied', `${label} copied. It will auto-clear in 30 seconds for security.`);
+    
+    setTimeout(async () => {
+      const currentClipboard = await Clipboard.getStringAsync();
+      if (currentClipboard === text) {
+        await Clipboard.setStringAsync('');
+      }
+    }, 30000);
   };
 
   const handleCopyPassword = async (id: string) => {

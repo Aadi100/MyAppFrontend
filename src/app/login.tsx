@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { useStore } from '../store/useStore';
 import { Screen, Input, PrimaryButton } from '../ui/kit';
 import Logo from '../ui/Logo';
@@ -12,6 +14,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasBiometric, setHasBiometric] = useState(false);
   const router = useRouter();
   const login = useStore(state => state.login);
   const accessToken = useStore(state => state.accessToken);
@@ -23,12 +26,73 @@ export default function LoginScreen() {
     }
   }, [accessToken]);
 
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const isEnabled = await SecureStore.getItemAsync('biometric_enabled');
+      const savedEmail = await SecureStore.getItemAsync('saved_email');
+      const savedPassword = await SecureStore.getItemAsync('saved_password');
+      if (savedEmail && savedPassword) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          setHasBiometric(true);
+          if (isEnabled === 'true') {
+            handleBiometricAuth(savedEmail, savedPassword);
+          }
+        }
+      }
+    };
+    if (!accessToken) {
+      checkBiometric();
+    }
+  }, [accessToken]);
+
+  const handleBiometricAuth = async (savedEmail?: string, savedPassword?: string) => {
+    const e = savedEmail || await SecureStore.getItemAsync('saved_email');
+    const p = savedPassword || await SecureStore.getItemAsync('saved_password');
+    if (!e || !p) return;
+
+    const authResult = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Login to Expense Manager',
+      fallbackLabel: 'Use Password',
+    });
+    
+    if (authResult.success) {
+      setLoading(true);
+      const success = await login(e, p);
+      setLoading(false);
+      if (success) {
+        router.replace('/');
+      }
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) return;
     setLoading(true);
     const success = await login(email, password);
     setLoading(false);
     if (success) {
+      await SecureStore.setItemAsync('saved_email', email);
+      await SecureStore.setItemAsync('saved_password', password);
+      
+      const isEnabled = await SecureStore.getItemAsync('biometric_enabled');
+      if (isEnabled === null) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          Alert.alert(
+            'Enable Biometrics?',
+            'Do you want to use Face ID / Fingerprint to log in next time?',
+            [
+              { text: 'Not now', onPress: () => { SecureStore.setItemAsync('biometric_enabled', 'false'); router.replace('/'); } },
+              { text: 'Yes', onPress: () => { SecureStore.setItemAsync('biometric_enabled', 'true'); router.replace('/'); } }
+            ]
+          );
+          return;
+        }
+      }
+      
       router.replace('/');
     }
   };
@@ -49,6 +113,15 @@ export default function LoginScreen() {
           <Text style={styles.link}>Forgot password?</Text>
         </TouchableOpacity>
         <PrimaryButton title="Sign in" onPress={handleLogin} loading={loading} />
+        {hasBiometric && (
+          <TouchableOpacity 
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, gap: 8 }}
+            onPress={() => handleBiometricAuth()}
+          >
+            <Ionicons name="finger-print-outline" size={24} color={C.text} />
+            <Text style={{ color: C.text, fontSize: 16, fontWeight: '600' }}>Log in with Biometrics</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.divider}>

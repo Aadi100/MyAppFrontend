@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useStore } from '../store/useStore';
 import { Screen, Header, Field, Input, PrimaryButton, ConfirmDialog } from '../ui/kit';
 import { C } from '../ui/theme';
@@ -17,6 +19,7 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState(profile?.phone || '');
   const [loading, setLoading] = useState(false);
   const [logoutAsk, setLogoutAsk] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -26,6 +29,28 @@ export default function ProfileScreen() {
       setPhone(profile.phone || '');
     }
   }, [profile]);
+
+  useEffect(() => {
+    SecureStore.getItemAsync('biometric_enabled').then(val => {
+      setBiometricEnabled(val === 'true');
+    });
+  }, []);
+
+  const handleToggleBiometric = async (val: boolean) => {
+    if (val) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !isEnrolled) {
+        alert('Biometrics not available or not enrolled on this device.');
+        return;
+      }
+      await SecureStore.setItemAsync('biometric_enabled', 'true');
+      setBiometricEnabled(true);
+    } else {
+      await SecureStore.setItemAsync('biometric_enabled', 'false');
+      setBiometricEnabled(false);
+    }
+  };
 
   const handleUpdate = async () => {
     setLoading(true);
@@ -61,6 +86,15 @@ export default function ProfileScreen() {
           <Field label="Full name"><Input icon="person-outline" placeholder="Name" value={name} onChangeText={setName} /></Field>
           <Field label="Email address"><Input icon="mail-outline" placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" /></Field>
           <Field label="Phone number"><Input icon="call-outline" placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /></Field>
+          
+          <View style={styles.settingRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="finger-print-outline" size={24} color={C.text} />
+              <Text style={styles.settingLabel}>Enable Biometric Login</Text>
+            </View>
+            <Switch value={biometricEnabled} onValueChange={handleToggleBiometric} trackColor={{ true: C.acc }} />
+          </View>
+
           <PrimaryButton title="Save changes" onPress={handleUpdate} loading={loading} style={{ marginTop: 24 }} />
         </View>
 
@@ -81,4 +115,6 @@ const styles = StyleSheet.create({
   name: { color: C.text, fontSize: 22, fontWeight: '800', marginTop: 14 },
   email: { color: C.mute, fontSize: 14, marginTop: 4 },
   version: { color: C.dim, fontSize: 12, textAlign: 'center', marginTop: 26 },
+  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.card, padding: 16, borderRadius: 16, marginTop: 12 },
+  settingLabel: { color: C.text, fontSize: 16, fontWeight: '600' },
 });
