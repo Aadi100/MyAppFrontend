@@ -5,8 +5,6 @@ import * as Updates from 'expo-updates';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { Camera as FaceDetectorCamera, type Face } from 'react-native-vision-camera-face-detector';
 import TabBar from '../ui/TabBar';
 import { useStore } from '../store/useStore';
 import { C } from '../ui/theme';
@@ -19,13 +17,6 @@ export default function TabLayout() {
   const appState = useRef(AppState.currentState);
   const backgroundTime = useRef<number | null>(null);
 
-  // Vision Camera Liveness
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('front');
-  const lastFaceTimeRef = useRef<number>(0);
-  const livenessEnabled = useRef(false);
-  const missingFaceCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const handleUnlock = async () => {
     const authResult = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Unlock Expense Manager',
@@ -35,38 +26,6 @@ export default function TabLayout() {
       setIsLocked(false);
     }
   };
-
-  useEffect(() => {
-    lastFaceTimeRef.current = Date.now();
-    (async () => {
-      if (!hasPermission) await requestPermission();
-      const enabled = await SecureStore.getItemAsync('biometric_enabled');
-      livenessEnabled.current = enabled === 'true';
-    })();
-  }, []);
-
-  const handleFacesDetected = (faces: Face[]) => {
-    if (faces.length > 0) {
-      lastFaceTimeRef.current = Date.now();
-    }
-  };
-
-  // Poll on JS thread instead of a native frame processor (no worklets runtime
-  // is installed), checking roughly every few seconds whether a face has been
-  // seen recently.
-  useEffect(() => {
-    missingFaceCheckRef.current = setInterval(() => {
-      if (!isLocked && livenessEnabled.current && accessToken) {
-        if (Date.now() - lastFaceTimeRef.current > 30000) { // 30 seconds
-          setIsLocked(true);
-          handleUnlock();
-        }
-      }
-    }, 5000);
-    return () => {
-      if (missingFaceCheckRef.current) clearInterval(missingFaceCheckRef.current);
-    };
-  }, [isLocked, accessToken]);
 
   useEffect(() => {
     async function checkForUpdates() {
@@ -136,19 +95,6 @@ export default function TabLayout() {
         <Tabs.Screen name="reset-password" options={{ href: null }} />
         <Tabs.Screen name="profile" options={{ href: null }} />
       </Tabs>
-
-      {hasPermission && device && accessToken && !isLocked && (
-        <View style={{ position: 'absolute', top: -2000, width: 10, height: 10, opacity: 0 }} pointerEvents="none">
-          <FaceDetectorCamera
-            style={StyleSheet.absoluteFill}
-            device={device}
-            isActive={true}
-            performanceMode="fast"
-            onFacesDetected={handleFacesDetected}
-            onError={(e) => console.log('Face detector camera error:', e)}
-          />
-        </View>
-      )}
 
       {isLocked && (
         <View style={styles.lockOverlay}>
