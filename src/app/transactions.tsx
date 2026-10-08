@@ -79,7 +79,7 @@ export default function TransactionsScreen() {
 
   const toggleGroup = (key) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const grouped = expenses.reduce((acc, expense) => {
+  const grouped = useMemo(() => expenses.reduce((acc, expense) => {
     const d = new Date(expense.date);
     let key;
     if (filter === 'day') {
@@ -99,7 +99,7 @@ export default function TransactionsScreen() {
     acc[key].total += (expense.type === 'credit' ? expense.amount : -expense.amount);
     if (expense.type === 'credit') acc[key].inn += expense.amount; else acc[key].out += expense.amount;
     return acc;
-  }, {});
+  }, {}), [expenses, filter, subCategories, masterCategories]);
 
   const sortedKeys = Object.keys(grouped).sort((a, b) => {
     if (filter === 'category') return a.localeCompare(b);
