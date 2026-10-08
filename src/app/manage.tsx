@@ -278,7 +278,10 @@ export default function ManageScreen() {
               {banks.map((bank, index) => (
                 <TouchableOpacity key={bank.id} activeOpacity={0.8} style={[styles.navRow, index === 0 && { borderTopWidth: 0 }]} onPress={() => router.push(`/bank-summary?id=${bank.id}`)}>
                   <IconBox name="business-outline" color={[C.blue, C.acc, C.amber][index % 3]} size={34} />
-                  <Text style={[styles.navTitle, { flex: 1 }]}>{bank.name}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.navTitle}>{bank.name}</Text>
+                    {bank.available_balance !== undefined && <Text style={styles.navSub}>Available: {money(bank.available_balance)}</Text>}
+                  </View>
                   <GhostBtn icon="pencil-outline" onPress={() => handleEditBank(bank)} />
                   <GhostBtn icon="trash-outline" danger onPress={() => handleDelete(bank.name, () => deleteBankAccount(bank.id))} />
                 </TouchableOpacity>

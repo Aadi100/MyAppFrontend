@@ -68,7 +68,7 @@ export default function BankSummaryScreen() {
   const incomeCats = summary.category_breakdown?.income || [];
   const maxExp = Math.max(...expense.map(c => Number(c.spent_this_month) || 0), 1);
   const maxInc = Math.max(...incomeCats.map(c => Number(c.received_this_month) || 0), 1);
-  const bal = summary.bank.balance || 0;
+  const bal = summary.bank.available_balance !== undefined ? summary.bank.available_balance : summary.bank.balance || 0;
 
   const miniStat = (icon, label, value, color) => (
     <View style={styles.mini}>
@@ -86,8 +86,17 @@ export default function BankSummaryScreen() {
       <MonthBar label={monthLabel} onPrev={() => shift(-1)} onNext={() => shift(1)} />
 
       <Hero style={{ marginTop: 12 }}>
-        <Label style={{ color: '#a5f3fc' }}>Current balance</Label>
+        <Label style={{ color: '#a5f3fc' }}>Available balance</Label>
         <Text style={[styles.bal, { color: bal >= 0 ? C.text : C.rose }]}>{money(bal)}</Text>
+        {summary.bank.balance !== undefined && summary.bank.available_balance !== undefined && summary.bank.balance !== summary.bank.available_balance && (
+          <Text style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>Current balance: {money(summary.bank.balance)}</Text>
+        )}
+        {summary.bank.overspend_this_month > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: 'rgba(251,113,133,0.15)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' }}>
+            <Ionicons name="warning-outline" size={14} color="#FCA5A5" />
+            <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '600' }}>{money(summary.bank.overspend_this_month)} overspent</Text>
+          </View>
+        )}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           {miniStat('arrow-down', 'Credited', `+${money(summary.this_month.total_credited)}`, C.acc)}
           {miniStat('arrow-up', 'Debited', `-${money(summary.this_month.total_debited)}`, C.rose)}

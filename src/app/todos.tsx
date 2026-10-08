@@ -27,7 +27,7 @@ export default function TodosScreen() {
     fetchTodos();
   }, []);
 
-  const openModal = (todo = null) => {
+  const openModal = (todo: any = null) => {
     if (todo) {
       setEditId(todo.id);
       setTitle(todo.title || '');
@@ -101,7 +101,7 @@ export default function TodosScreen() {
 
     return (
       <Card style={[styles.card, isDone && { opacity: 0.6 }]}>
-        <View style={styles.priorityStrip} backgroundColor={getPriorityColor(item.priority)} />
+        <View style={[styles.priorityStrip, { backgroundColor: getPriorityColor(item.priority) }]} />
         <TouchableOpacity style={{ flex: 1, paddingVertical: 12, paddingLeft: 12 }} onPress={() => openModal(item)}>
           <Text style={[styles.title, isDone && { textDecorationLine: 'line-through' }]}>{item.title}</Text>
           {item.due_at && (
@@ -222,7 +222,7 @@ export default function TodosScreen() {
                   <DateTimePicker value={time} mode="time" display="default" onChange={(e, d) => { setShowTimePicker(false); if (d) setTime(d); }} />
                 )}
 
-                <PrimaryButton label="Save Task" onPress={handleSave} style={{ marginTop: 24 }} />
+                <PrimaryButton title="Save Task" onPress={handleSave} style={{ marginTop: 24 }} />
 
                 {/* Subtasks Section */}
                 {editId && editTodo && (

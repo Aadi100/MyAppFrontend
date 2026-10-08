@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Path, Defs, LinearGradient as SvgGrad, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { C, GRAD, GRAD_DANGER, alpha } from './theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -32,7 +33,9 @@ export function Screen({ children, scroll = true, tabPad = true, style, refreshC
   );
 }
 
-export function Header({ title, onBack, right, big }: { title?: string; onBack?: () => void; right?: React.ReactNode; big?: boolean }) {
+export function Header({ title, onBack, showBack, right, big }: { title?: string; onBack?: () => void; showBack?: boolean; right?: React.ReactNode; big?: boolean }) {
+  const router = useRouter();
+  if (showBack && !onBack) onBack = () => router.back();
   if (big) {
     return (
       <View style={[styles.rowSp, { marginBottom: 14 }]}>
@@ -166,9 +169,10 @@ export function Input({ icon, right, onRightPress, style, ...rest }: TextInputPr
   );
 }
 
-export function PrimaryButton({ title, onPress, icon, loading, disabled, variant = 'primary', style, small }: {
-  title: string; onPress?: () => void; icon?: IconName; loading?: boolean; disabled?: boolean; variant?: 'primary' | 'ghost' | 'danger'; style?: StyleProp<ViewStyle>; small?: boolean;
+export function PrimaryButton({ title, onPress, icon, loading, disabled, variant = 'primary', outline, style, small }: {
+  title: string; onPress?: () => void; icon?: IconName; loading?: boolean; disabled?: boolean; variant?: 'primary' | 'ghost' | 'danger'; outline?: boolean; style?: StyleProp<ViewStyle>; small?: boolean;
 }) {
+  if (outline) variant = 'ghost';
   const h = small ? 42 : 56;
   const content = (
     <>

@@ -177,7 +177,7 @@ export default function SavingsScreen() {
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                   {!r.isComplete && <PrimaryButton title="Add" icon="add" small onPress={() => openContribute(r.goal)} style={{ height: 32, borderRadius: 10 }} />}
                   <PrimaryButton title="Withdraw" variant="ghost" small onPress={() => openWithdraw(r.goal, r.current)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />
-                  {!r.isComplete && <PrimaryButton title="AI Forecast" icon="bulb-outline" variant="outline" small onPress={() => openSimulate(r.goal)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />}
+                  {!r.isComplete && <PrimaryButton title="AI Forecast" icon="bulb-outline" variant="ghost" small onPress={() => openSimulate(r.goal)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />}
                 </View>
               </View>
             </Card>

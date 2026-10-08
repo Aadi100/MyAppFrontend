@@ -43,6 +43,7 @@ export default function Dashboard() {
   }, [currentMonth, accessToken]);
 
   const totalBalance = dashboardSummary?.total_bank_balance || 0;
+  const availableBalance = dashboardSummary?.available_balance || totalBalance;
   const netWorth = dashboardSummary?.net_worth || 0;
   const totalOverspend = dashboardSummary?.total_overspend || 0;
   const income = dashboardSummary?.total_assigned_budget || 0;
@@ -175,7 +176,7 @@ export default function Dashboard() {
             <Sparkline data={trend.series} width={heroW} height={52} color={trend.pct >= 0 ? C.acc : C.rose} />
           </View>
           <View style={styles.heroStats}>
-            <View><Label>Bank</Label><Text style={styles.heroStat}>{num(totalBalance)}</Text></View>
+            <View><Label>Available</Label><Text style={styles.heroStat}>{num(availableBalance)}</Text></View>
             <View><Label>Savings</Label><Text style={styles.heroStat}>{num(savings)}</Text></View>
             <View style={{ alignItems: 'flex-end' }}><Label>Overspend</Label><Text style={[styles.heroStat, { color: C.rose }]}>{num(totalOverspend)}</Text></View>
           </View>
@@ -265,8 +266,11 @@ export default function Dashboard() {
               {bankAccounts.map((b, idx) => (
                 <TouchableOpacity key={b.id} activeOpacity={0.8} style={[styles.brow, idx === 0 && { borderTopWidth: 0 }, { flexDirection: 'row', alignItems: 'center', gap: 12 }]} onPress={() => router.push(`/bank-summary?id=${b.id}`)}>
                   <IconBox name="business-outline" color={[C.blue, C.acc, C.amber][idx % 3]} size={34} />
-                  <Text style={[styles.progressName, { flex: 1 }]}>{b.name}</Text>
-                  <Text style={[styles.progressName, { color: b.balance < 0 ? C.rose : C.text }]}>{money(b.balance)}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.progressName}>{b.name}</Text>
+                    {b.overspend_this_month > 0 && <Text style={{ color: C.rose, fontSize: 12, marginTop: 2 }}>{num(b.overspend_this_month)} overspent</Text>}
+                  </View>
+                  <Text style={[styles.progressName, { color: (b.available_balance ?? b.balance) < 0 ? C.rose : C.text }]}>{money(b.available_balance ?? b.balance)}</Text>
                 </TouchableOpacity>
               ))}
             </Card>

@@ -22,7 +22,7 @@ export default function RemindersScreen() {
     fetchReminders();
   }, []);
 
-  const openModal = (reminder = null) => {
+  const openModal = (reminder: any = null) => {
     if (reminder) {
       setEditId(reminder.id);
       setTitle(reminder.title || '');
@@ -110,7 +110,10 @@ export default function RemindersScreen() {
 
       <Modal visible={modalVisible} animationType="slide" presentationStyle="formSheet">
         <View style={styles.modal}>
-          <Text style={styles.modalTitle}>{editId ? 'Edit Reminder' : 'New Reminder'}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <Text style={[styles.modalTitle, { marginBottom: 0 }]}>{editId ? 'Edit Reminder' : 'New Reminder'}</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)}><Ionicons name="close" size={28} color={C.text} /></TouchableOpacity>
+          </View>
           <Field label="Title">
             <Input value={title} onChangeText={setTitle} placeholder="Electricity Bill" />
           </Field>
@@ -145,8 +148,8 @@ export default function RemindersScreen() {
           </Field>
 
           <View style={{ marginTop: 24, flexDirection: 'row', gap: 12 }}>
-            <PrimaryButton label="Cancel" onPress={() => setModalVisible(false)} outline style={{ flex: 1 }} />
-            <PrimaryButton label="Save" onPress={handleSave} style={{ flex: 1 }} />
+            <PrimaryButton title="Cancel" onPress={() => setModalVisible(false)} outline style={{ flex: 1 }} />
+            <PrimaryButton title="Save" onPress={handleSave} style={{ flex: 1 }} />
           </View>
         </View>
       </Modal>

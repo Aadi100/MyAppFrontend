@@ -67,9 +67,29 @@ export default function BankComparisonScreen() {
             </View>
           ) : null}
 
+          {comparison.summary && (
+            <Card pad={14} style={{ marginTop: 12 }}>
+              <Label>All Banks Summary</Label>
+              <View style={[styles.rowSp, { marginTop: 12 }]}>
+                <View>
+                  <Text style={styles.sub12}>Total Balance</Text>
+                  <Text style={styles.statValue}>{money(comparison.summary.total_balance)}</Text>
+                </View>
+                <View>
+                  <Text style={styles.sub12}>Available</Text>
+                  <Text style={[styles.statValue, { color: C.acc }]}>{money(comparison.summary.total_available_balance)}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.sub12}>Overspend</Text>
+                  <Text style={[styles.statValue, { color: C.rose }]}>{money(comparison.summary.total_overspend)}</Text>
+                </View>
+              </View>
+            </Card>
+          )}
+
           <View style={{ gap: 12, marginTop: 12 }}>
             {comparison.banks.map((bank, index) => {
-              const balance = bank.balance !== undefined ? bank.balance : bank.current_balance;
+              const balance = bank.available_balance !== undefined ? bank.available_balance : (bank.balance !== undefined ? bank.balance : bank.current_balance);
               const inn = Number(bank.credited_this_month || 0);
               const out = Number(bank.debited_this_month || 0);
               const col = BANK_COLORS[index % BANK_COLORS.length];
@@ -80,13 +100,20 @@ export default function BankComparisonScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                         <IconBox name="business-outline" color={col} size={42} />
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.bankName}>{bank.name}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.bankName}>{bank.name}</Text>
+                            {bank.health === 'overspent' && <Tag label="Overspent" color={C.rose} />}
+                            {bank.health === 'at risk' && <Tag label="At risk" color={C.amber} />}
+                          </View>
                           <Text style={styles.sub12}>Opening {money(bank.calculated_opening_balance || 0)}</Text>
                         </View>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text style={[styles.bal, { color: balance >= 0 ? C.text : C.rose }]}>{money(balance)}</Text>
-                        <Label style={{ fontSize: 9.5 }}>Current balance</Label>
+                        <Label style={{ fontSize: 9.5 }}>Available balance</Label>
+                        {bank.current_balance !== undefined && bank.current_balance !== balance && (
+                          <Text style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>Actual {money(bank.current_balance)}</Text>
+                        )}
                       </View>
                     </View>
 
@@ -113,7 +140,9 @@ export default function BankComparisonScreen() {
                     {bank.overspend_this_month > 0 && (
                       <View style={styles.over}>
                         <Ionicons name="warning-outline" size={14} color="#FCA5A5" />
-                        <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '600' }}>Overspent this month: {money(bank.overspend_this_month)}</Text>
+                        <Text style={{ color: '#FCA5A5', fontSize: 12, fontWeight: '600' }}>
+                          Overspent {money(bank.overspend_this_month)} {bank.overspend_percentage ? `(${bank.overspend_percentage}%)` : ''}
+                        </Text>
                       </View>
                     )}
 
@@ -128,6 +157,9 @@ export default function BankComparisonScreen() {
                       <View style={{ alignItems: 'flex-end' }}>
                         <Text style={styles.statLabel}>Net flow</Text>
                         <Text style={[styles.statValue, { color: bank.net_this_month >= 0 ? C.blue : C.rose }]}>{bank.net_this_month >= 0 ? '+' : ''}{money(bank.net_this_month)}</Text>
+                        {bank.net_change_vs_last_month !== undefined && (
+                          <Text style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>{bank.net_change_vs_last_month >= 0 ? '+' : ''}{money(bank.net_change_vs_last_month)} vs last</Text>
+                        )}
                       </View>
                     </View>
 
@@ -136,7 +168,10 @@ export default function BankComparisonScreen() {
                         <Label>Top spends</Label>
                         {bank.category_spend.slice(0, 3).map((spend, idx) => (
                           <View key={idx} style={styles.listRow}>
-                            <Text style={styles.listName}>{spend.name}</Text>
+                            <View>
+                              <Text style={styles.listName}>{spend.name}</Text>
+                              {spend.pct_of_total !== undefined && <Text style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>{spend.pct_of_total}% of total</Text>}
+                            </View>
                             <Text style={[styles.listAmt, { color: C.rose }]}>{money(spend.spent)}</Text>
                           </View>
                         ))}
