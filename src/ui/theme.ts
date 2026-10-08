@@ -16,6 +16,9 @@ export const C = {
   amber: '#FBBF24',
   rose: '#FB7185',
   orange: '#FB923C',
+  // Aliases used by some screens
+  red: '#FB7185',
+  green: '#22D3EE',
 };
 
 export const GRAD = ['#67E8F9', '#0891B2'] as const;

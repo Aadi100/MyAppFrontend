@@ -221,7 +221,7 @@ export default function SavingsScreen() {
 
       {/* Simulate */}
       <Sheet visible={simulateModalVisible} onClose={() => setSimulateModalVisible(false)} title="AI Savings Forecast">
-        <Text style={[styles.goalSub, { marginBottom: 12 }]}>Simulate how much faster you'll reach your goal by adding extra money each month.</Text>
+        <Text style={[styles.goalSub, { marginBottom: 12 }]}>Simulate how much faster you&apos;ll reach your goal by adding extra money each month.</Text>
         <Field label="Extra Monthly Amount">
           <Input icon="cash-outline" placeholder="e.g. 5000" keyboardType="decimal-pad" value={simulateForm.extra_amount} onChangeText={(val) => setSimulateForm({ ...simulateForm, extra_amount: val })} />
         </Field>
