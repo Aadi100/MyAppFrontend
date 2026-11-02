@@ -45,7 +45,7 @@ export default function TabLayout() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', async nextAppState => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+      if (appState.current?.match(/inactive|background/) && nextAppState === 'active') {
         if (backgroundTime.current && accessToken) {
           const diff = Date.now() - backgroundTime.current;
           if (diff > 120000) { // 2 minutes (120,000 ms)
