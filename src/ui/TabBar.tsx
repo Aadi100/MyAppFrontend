@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, FadeInDown } from 'react-native-reanimated';
 import AddTransactionModal from '../components/AddTransactionModal';
-import { C, GRAD, alpha } from './theme';
+import { C, F, GRAD, alpha } from './theme';
 
 const HIDDEN = ['login', 'signup', 'recover', 'reset-password', 'profile'];
 const BANK_ROUTES = ['bank-comparison', 'bank-summary'];
@@ -17,6 +18,49 @@ const TABS = [
   { route: 'bank-comparison', label: 'Banks', icon: 'business-outline' },
   { route: 'manage', label: 'Menu', icon: 'grid-outline' },
 ] as const;
+
+function TabItem({ icon, label, on, onPress }: { icon: string; label: string; on: boolean; onPress: () => void }) {
+  const lift = useSharedValue(on ? 1 : 0);
+  useEffect(() => { lift.set(withSpring(on ? 1 : 0, { damping: 14, stiffness: 180 })); }, [on]);
+  const pillStyle = useAnimatedStyle(() => ({
+    backgroundColor: alpha(C.acc, lift.value * 0.14),
+    transform: [{ scale: 1 + lift.value * 0.08 }],
+  }));
+  const pressScale = useSharedValue(1);
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: pressScale.value }] }));
+  return (
+    <Pressable
+      style={styles.tab}
+      onPress={onPress}
+      onPressIn={() => { pressScale.set(withTiming(0.88, { duration: 80 })); }}
+      onPressOut={() => { pressScale.set(withSpring(1, { damping: 14, stiffness: 220 })); }}>
+      <Animated.View style={pressStyle}>
+        <Animated.View style={[styles.pill, pillStyle]}>
+          <Ionicons name={icon as any} size={22} color={on ? C.acc : C.dim} />
+        </Animated.View>
+      </Animated.View>
+      <Text style={{ fontSize: 10.5, fontFamily: F.semibold, color: on ? C.acc : C.dim }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function FabButton({ onPress }: { onPress: () => void }) {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => { scale.set(withTiming(0.88, { duration: 80 })); }}
+      onPressOut={() => { scale.set(withSpring(1, { damping: 12, stiffness: 240 })); }}
+      style={styles.fabWrap}>
+      <Animated.View entering={FadeInDown.duration(500).springify()} style={style}>
+        <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fab}>
+          <Ionicons name="add" size={30} color={C.onAcc} />
+        </LinearGradient>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export default function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -31,23 +75,9 @@ export default function TabBar({ state, navigation }: any) {
       <View style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) + 4 }]} pointerEvents="box-none">
         <View style={styles.bar}>
           {TABS.map((t) => {
-            if (t.route === 'add') {
-              return (
-                <TouchableOpacity key="add" activeOpacity={0.9} onPress={() => setAddVisible(true)} style={styles.fabWrap}>
-                  <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fab}>
-                    <Ionicons name="add" size={30} color={C.onAcc} />
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            }
-            const on = activeKey === t.route;
+            if (t.route === 'add') return <FabButton key="add" onPress={() => setAddVisible(true)} />;
             return (
-              <TouchableOpacity key={t.route} style={styles.tab} activeOpacity={0.8} onPress={() => navigation.navigate(t.route as never)}>
-                <View style={[styles.pill, on && { backgroundColor: alpha(C.acc, 0.14) }]}>
-                  <Ionicons name={t.icon as any} size={22} color={on ? C.acc : C.dim} />
-                </View>
-                <Text style={{ fontSize: 10.5, fontWeight: '600', color: on ? C.acc : C.dim }}>{t.label}</Text>
-              </TouchableOpacity>
+              <TabItem key={t.route} icon={t.icon} label={t.label} on={activeKey === t.route} onPress={() => navigation.navigate(t.route as never)} />
             );
           })}
         </View>

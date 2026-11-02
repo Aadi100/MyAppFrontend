@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../store/useStore';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { useRouter } from 'expo-router';
-import { Screen, Card, Hero, IconBox, Tag, Bar, MonthBar, SectionRow, Label, Ring, Donut, Sparkline, BarChart, EmptyState } from '../ui/kit';
-import { C, money, num, categoryIcon } from '../ui/theme';
+import { Screen, Card, Hero, IconBox, Tag, Bar, MonthBar, SectionRow, Label, Ring, Donut, Sparkline, BarChart, EmptyState, AnimatedNumber, SkeletonCard, Skeleton } from '../ui/kit';
+import { C, F, money, num, categoryIcon } from '../ui/theme';
 
 const DAY = 24 * 60 * 60 * 1000;
 const DONUT_COLORS = [C.acc, C.blue, C.violet, C.amber];
@@ -142,6 +142,25 @@ export default function Dashboard() {
     </Card>
   );
 
+  if (!dashboardSummary) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <View style={{ gap: 8 }}><Skeleton width={110} height={12} /><Skeleton width={160} height={22} /></View>
+          <Skeleton width={42} height={42} radius={15} />
+        </View>
+        <Skeleton height={54} radius={18} />
+        <View style={{ marginTop: 14 }}><Skeleton height={168} radius={28} /></View>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+          <Skeleton height={70} radius={18} style={{ flex: 1 }} /><Skeleton height={70} radius={18} style={{ flex: 1 }} /><Skeleton height={70} radius={18} style={{ flex: 1 }} /><Skeleton height={70} radius={18} style={{ flex: 1 }} />
+        </View>
+        <View style={{ gap: 10, marginTop: 14 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <>
       <Screen>
@@ -157,7 +176,7 @@ export default function Dashboard() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/profile')}>
               <LinearGradient colors={['#67E8F9', '#0E7490']} style={styles.avatar}>
-                <Text style={{ color: C.onAcc, fontWeight: '800', fontSize: 16 }}>{(profileName || 'A').charAt(0).toUpperCase()}</Text>
+                <Text style={{ color: C.onAcc, fontFamily: F.extrabold, fontSize: 16 }}>{(profileName || 'A').charAt(0).toUpperCase()}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -171,7 +190,7 @@ export default function Dashboard() {
             <Label style={{ color: '#a5f3fc' }}>Net worth</Label>
             <Tag color={trend.pct >= 0 ? C.acc : C.rose} label={`${trend.pct >= 0 ? '+' : ''}${trend.pct.toFixed(1)}% · 24d`} />
           </View>
-          <Text style={styles.netWorth}>{money(netWorth)}</Text>
+          <AnimatedNumber value={netWorth} formatter={(n) => money(n)} style={styles.netWorth} />
           <View style={{ marginTop: 6, marginHorizontal: -2 }}>
             <Sparkline data={trend.series} width={heroW} height={52} color={trend.pct >= 0 ? C.acc : C.rose} />
           </View>
@@ -220,8 +239,8 @@ export default function Dashboard() {
             <Label>Monthly budget</Label>
             <Text style={styles.cardValue}>{money(income)}</Text>
             <View style={styles.rowSp}>
-              <Text style={styles.mute12}>Spent <Text style={{ color: C.rose, fontWeight: '700' }}>{num(spent)}</Text></Text>
-              <Text style={styles.mute12}>Left <Text style={{ color: remaining < 0 ? C.rose : C.acc, fontWeight: '700' }}>{num(remaining)}</Text></Text>
+              <Text style={styles.mute12}>Spent <Text style={{ color: C.rose, fontFamily: F.bold }}>{num(spent)}</Text></Text>
+              <Text style={styles.mute12}>Left <Text style={{ color: remaining < 0 ? C.rose : C.acc, fontFamily: F.bold }}>{num(remaining)}</Text></Text>
             </View>
             <Bar pct={usedPct} color={usedPct > 100 ? C.rose : C.acc} />
           </View>
@@ -251,7 +270,7 @@ export default function Dashboard() {
                     <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: s.color }} />
                     <Text style={{ color: C.text, fontSize: 12.5 }} numberOfLines={1}>{s.name}</Text>
                   </View>
-                  <Text style={{ color: C.text, fontWeight: '700', fontSize: 12.5 }}>{Math.round(s.pct)}%</Text>
+                  <Text style={{ color: C.text, fontFamily: F.bold, fontSize: 12.5 }}>{Math.round(s.pct)}%</Text>
                 </View>
               ))}
             </View>
@@ -325,8 +344,8 @@ export default function Dashboard() {
                       </View>
                       {sub.lent_out > 0 && (
                         <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={{ color: C.blue, fontSize: 10.5, fontWeight: '600' }}>Lent out</Text>
-                          <Text style={{ color: C.blue, fontSize: 13, fontWeight: '700' }}>{money(sub.lent_out)}</Text>
+                          <Text style={{ color: C.blue, fontSize: 10.5, fontFamily: F.semibold }}>Lent out</Text>
+                          <Text style={{ color: C.blue, fontSize: 13, fontFamily: F.bold }}>{money(sub.lent_out)}</Text>
                         </View>
                       )}
                     </View>
@@ -371,30 +390,30 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   greeting: { color: C.mute, fontSize: 13 },
-  name: { color: C.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
+  name: { color: C.text, fontSize: 24, fontFamily: F.extrabold, letterSpacing: -0.5, marginTop: 2 },
   headBtn: { width: 42, height: 42, borderRadius: 15, backgroundColor: C.s2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   rowSp: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  netWorth: { color: C.text, fontSize: 38, fontWeight: '800', letterSpacing: -1.2, marginTop: 6 },
+  netWorth: { color: C.text, fontSize: 38, fontFamily: F.extrabold, letterSpacing: -1.2, marginTop: 6 },
   heroStats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.09)' },
-  heroStat: { color: C.text, fontSize: 14, fontWeight: '700', marginTop: 4 },
+  heroStat: { color: C.text, fontSize: 14, fontFamily: F.bold, marginTop: 4 },
   quick: { flexDirection: 'row', marginTop: 14, gap: 10 },
-  quickLabel: { color: C.mute, fontSize: 11.5, fontWeight: '700', marginTop: 7 },
-  cardValue: { color: C.text, fontSize: 21, fontWeight: '800', letterSpacing: -0.4, marginTop: 3 },
-  ringNum: { color: C.text, fontSize: 21, fontWeight: '800' },
-  ringSub: { color: C.dim, fontSize: 10, fontWeight: '700' },
-  donutNum: { color: C.text, fontSize: 16, fontWeight: '800' },
+  quickLabel: { color: C.mute, fontSize: 11.5, fontFamily: F.bold, marginTop: 7 },
+  cardValue: { color: C.text, fontSize: 21, fontFamily: F.extrabold, letterSpacing: -0.4, marginTop: 3 },
+  ringNum: { color: C.text, fontSize: 21, fontFamily: F.extrabold },
+  ringSub: { color: C.dim, fontSize: 10, fontFamily: F.bold },
+  donutNum: { color: C.text, fontSize: 16, fontFamily: F.extrabold },
   mute12: { color: C.mute, fontSize: 12.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   tile: { width: '48.4%' },
   tileLabel: { color: C.mute, fontSize: 12, marginTop: 10 },
-  tileValue: { color: C.text, fontSize: 18, fontWeight: '800', marginTop: 2, letterSpacing: -0.3 },
+  tileValue: { color: C.text, fontSize: 18, fontFamily: F.extrabold, marginTop: 2, letterSpacing: -0.3 },
   tileSub: { color: C.dim, fontSize: 11, marginTop: 4 },
   brow: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
-  progressName: { color: C.text, fontSize: 14.5, fontWeight: '700' },
+  progressName: { color: C.text, fontSize: 14.5, fontFamily: F.bold },
   progressAmounts: { color: C.dim, fontSize: 12, marginTop: 2 },
   tx: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
-  tTitle: { color: C.text, fontSize: 15, fontWeight: '700' },
+  tTitle: { color: C.text, fontSize: 15, fontFamily: F.bold },
   tDate: { color: C.dim, fontSize: 12, marginTop: 2 },
-  tAmount: { fontSize: 15, fontWeight: '800' },
+  tAmount: { fontSize: 15, fontFamily: F.extrabold },
 });

@@ -24,6 +24,25 @@ export const C = {
 export const GRAD = ['#67E8F9', '#0891B2'] as const;
 export const GRAD_DANGER = ['#FB7185', '#E11D48'] as const;
 
+// Plus Jakarta Sans, embedded as five static weights (see app.json's expo-font
+// plugin). Each is its own native font family — there is no runtime weight
+// switching, so pick the matching family instead of relying on fontWeight.
+export const F = {
+  regular: 'PlusJakartaSans-Regular',
+  medium: 'PlusJakartaSans-Medium',
+  semibold: 'PlusJakartaSans-SemiBold',
+  bold: 'PlusJakartaSans-Bold',
+  extrabold: 'PlusJakartaSans-ExtraBold',
+};
+
+export const shadow = (color: string, opacity = 0.35, radius = 20, y = 10) => ({
+  shadowColor: color,
+  shadowOpacity: opacity,
+  shadowRadius: radius,
+  shadowOffset: { width: 0, height: y },
+  elevation: Math.round(radius / 2.2),
+});
+
 export const alpha = (hex: string, a: number) => {
   const h = hex.replace('#', '');
   const n = parseInt(h, 16);
