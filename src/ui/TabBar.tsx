@@ -5,11 +5,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, FadeInDown } from 'react-native-reanimated';
 import AddTransactionModal from '../components/AddTransactionModal';
-import { C, F, GRAD, alpha } from './theme';
+import { C, F, GRAD } from './theme';
 
 const HIDDEN = ['login', 'signup', 'recover', 'reset-password', 'profile'];
 const BANK_ROUTES = ['bank-comparison', 'bank-summary'];
 const MAIN = ['index', 'transactions', 'bank-comparison', 'manage'];
+
+// Precomputed outside any worklet: useAnimatedStyle runs on the UI runtime,
+// which can't synchronously call plain JS helpers like alpha() — only
+// worklet-safe operations (arithmetic, template strings) are allowed there.
+const ACC_R = parseInt(C.acc.slice(1, 3), 16);
+const ACC_G = parseInt(C.acc.slice(3, 5), 16);
+const ACC_B = parseInt(C.acc.slice(5, 7), 16);
 
 const TABS = [
   { route: 'index', label: 'Home', icon: 'home-outline' },
@@ -23,7 +30,7 @@ function TabItem({ icon, label, on, onPress }: { icon: string; label: string; on
   const lift = useSharedValue(on ? 1 : 0);
   useEffect(() => { lift.set(withSpring(on ? 1 : 0, { damping: 14, stiffness: 180 })); }, [on]);
   const pillStyle = useAnimatedStyle(() => ({
-    backgroundColor: alpha(C.acc, lift.value * 0.14),
+    backgroundColor: `rgba(${ACC_R},${ACC_G},${ACC_B},${lift.value * 0.14})`,
     transform: [{ scale: 1 + lift.value * 0.08 }],
   }));
   const pressScale = useSharedValue(1);

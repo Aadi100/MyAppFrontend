@@ -22,7 +22,6 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.CAMERA"],
       "package": "com.aadii.myapp"
     },
     "web": {
