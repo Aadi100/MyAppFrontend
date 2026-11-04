@@ -28,12 +28,7 @@ export default function Dashboard() {
   const accessToken = useStore((state) => state.accessToken);
 
   useEffect(() => {
-    if (!accessToken) {
-      router.replace('/login');
-    } else {
-      fetchData();
-      fetchDashboardSummary(currentMonth);
-    }
+    if (accessToken) fetchData();
   }, [accessToken]);
 
   useEffect(() => {

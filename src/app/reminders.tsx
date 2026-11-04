@@ -95,13 +95,13 @@ export default function RemindersScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scroll={false} style={{ paddingBottom: 0 }}>
       <Header title="Reminders" showBack />
       <FlatList
         data={reminders}
         keyExtractor={i => i.id}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingVertical: 8, paddingBottom: 130 }} showsVerticalScrollIndicator={false}
         ListEmptyComponent={<Text style={{ color: C.mute, textAlign: 'center', marginTop: 50 }}>No reminders found.</Text>}
       />
       <TouchableOpacity style={styles.fab} onPress={() => openModal()}>

@@ -230,7 +230,7 @@ export default function TransactionsScreen() {
             const open = expandedGroups[key];
             const positive = g.total >= 0;
             return (
-              <Card key={key} pad={0} style={{ overflow: 'hidden' }}>
+              <Card key={key} pad={0} noMotion style={{ overflow: 'hidden' }}>
                 <TouchableOpacity style={styles.groupHeader} onPress={() => toggleGroup(key)} activeOpacity={0.8}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
                     <IconBox name={filter === 'category' ? (categoryIcon(key.split('/').pop()?.trim()) as any) : 'calendar-outline'} color={filter === 'category' ? C.violet : C.mute} size={34} />
@@ -263,7 +263,7 @@ export default function TransactionsScreen() {
 
                 {open && (
                   <View style={styles.groupContent}>
-                    {g.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense, idx) => {
+                    {[...g.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((expense, idx) => {
                       const catName = getSubCategoryName(expense.sub_category_id);
                       const isCredit = expense.type === 'credit';
                       return (

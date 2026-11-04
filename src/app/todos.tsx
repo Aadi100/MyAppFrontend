@@ -139,13 +139,13 @@ export default function TodosScreen() {
   const editTodo = todos.find(t => t.id === editId);
 
   return (
-    <Screen>
+    <Screen scroll={false} style={{ paddingBottom: 0 }}>
       <Header title="To-Do List" showBack />
       <FlatList
         data={todos}
         keyExtractor={i => i.id}
         renderItem={renderItem}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingVertical: 8, paddingBottom: 130 }} showsVerticalScrollIndicator={false}
         ListEmptyComponent={<Text style={{ color: C.mute, textAlign: 'center', marginTop: 50 }}>No tasks found.</Text>}
       />
       <TouchableOpacity style={styles.fab} onPress={() => openModal()}>

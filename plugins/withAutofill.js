@@ -36,7 +36,7 @@ const withAutofill = (config) => {
     mainApplication.service.push({
       $: {
         'android:name': '.MyAutofillService',
-        'android:label': 'Expense Manager Autofill',
+        'android:label': 'Adion Autofill',
         'android:permission': 'android.permission.BIND_AUTOFILL_SERVICE',
         'android:exported': 'true',
       },

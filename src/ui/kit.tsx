@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ScrollView, KeyboardAvoidingView,
-  Platform, Pressable, ActivityIndicator, ViewStyle, TextInputProps, StyleProp,
+  Platform, Pressable, ActivityIndicator, ViewStyle, TextInputProps, StyleProp, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +26,16 @@ AnyText.defaultProps = AnyText.defaultProps || {};
 AnyText.defaultProps.style = [{ fontFamily: F.regular }, AnyText.defaultProps.style];
 
 // ---------- layout ----------
+// RN's KeyboardAvoidingView.componentDidMount unconditionally calls an
+// internal _setBottom() setState, regardless of the `behavior` prop — on
+// Android that measurement can retrigger itself (via onLayout) faster than
+// React's render loop can settle, crashing with "Maximum update depth
+// exceeded". Android already resizes the window natively on keyboard open
+// (Expo's default windowSoftInputMode), so the component isn't needed
+// there at all; only render it on iOS, where `behavior="padding"` is
+// actually required.
+const ScreenWrap: React.ComponentType<any> = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+export const ModalWrap = ScreenWrap;
 export function Screen({ children, scroll = true, tabPad = true, style, refreshControl }: { children: React.ReactNode; scroll?: boolean; tabPad?: boolean; style?: StyleProp<ViewStyle>; refreshControl?: any }) {
   const insets = useSafeAreaInsets();
   const body = React.useMemo(
@@ -33,7 +43,7 @@ export function Screen({ children, scroll = true, tabPad = true, style, refreshC
     [insets.top, tabPad],
   );
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <ScreenWrap style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <LinearGradient colors={['rgba(34,211,238,0.14)', 'transparent']} style={styles.glow} pointerEvents="none" />
       {scroll ? (
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" contentContainerStyle={[body, style as any]} refreshControl={refreshControl}>
@@ -42,7 +52,7 @@ export function Screen({ children, scroll = true, tabPad = true, style, refreshC
       ) : (
         <View style={[{ flex: 1 }, body, style]}>{children}</View>
       )}
-    </KeyboardAvoidingView>
+    </ScreenWrap>
   );
 }
 
@@ -82,29 +92,50 @@ export function SectionRow({ title, action, onAction }: { title: string; action?
   );
 }
 
+// Components that wrap their content in an outer element (for shadows, press targets, entering
+// animations) must put the caller's *layout* styles on that outermost element — otherwise
+// `flex: 1`, `width: '48%'`, margins etc. apply to an inner child and the wrapper collapses to
+// its content size (narrow tiles, shrunken buttons). Everything else stays on the inner element.
+const OUTER_LAYOUT_KEYS = new Set([
+  'flex', 'flexGrow', 'flexShrink', 'flexBasis', 'width', 'minWidth', 'maxWidth', 'alignSelf',
+  'position', 'top', 'left', 'right', 'bottom', 'zIndex',
+  'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'marginHorizontal', 'marginVertical', 'marginStart', 'marginEnd',
+]);
+function splitLayout(style?: StyleProp<ViewStyle>): [ViewStyle, ViewStyle] {
+  const flat = (StyleSheet.flatten(style) || {}) as Record<string, any>;
+  const outer: Record<string, any> = {};
+  const inner: Record<string, any> = {};
+  for (const k of Object.keys(flat)) (OUTER_LAYOUT_KEYS.has(k) ? outer : inner)[k] = flat[k];
+  return [outer, inner];
+}
+
+// NaN/Infinity (e.g. spent / max with max = 0) would produce an invalid `NaN%` width or SVG dash.
+const safePct = (n: number) => (Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0);
+
 export function Card({ children, style, pad = 16, onPress, noMotion }: { children?: React.ReactNode; style?: StyleProp<ViewStyle>; pad?: number; onPress?: () => void; noMotion?: boolean }) {
   const scale = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const [outerStyle, innerStyle] = splitLayout(style);
   const body = (
-    <LinearGradient colors={[C.s2, C.s1]} style={[styles.card, { padding: pad }, style]}>
+    <LinearGradient colors={[C.s2, C.s1]} style={[styles.card, { padding: pad }, outerStyle.flex != null ? { flex: 1 } : null, innerStyle]}>
       <View style={styles.cardHighlight} pointerEvents="none" />
       {children}
     </LinearGradient>
   );
-  const wrapped = (
-    <Animated.View style={[styles.cardShadow, onPress ? pressStyle : undefined]}
-      entering={noMotion ? undefined : FadeInUp.duration(420).easing(Easing.out(Easing.cubic))}>
-      {body}
-    </Animated.View>
-  );
-  if (!onPress) return wrapped;
+  // The entering animation and the press-scale both animate `transform`; keep them on
+  // separate views so one doesn't overwrite the other.
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => { scale.set(withTiming(0.97, { duration: 90 })); }}
-      onPressOut={() => { scale.set(withSpring(1, { damping: 14, stiffness: 220 })); }}>
-      {wrapped}
-    </Pressable>
+    <Animated.View style={[styles.cardShadow, outerStyle]}
+      entering={noMotion ? undefined : FadeInUp.duration(420).easing(Easing.out(Easing.cubic))}>
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          onPressIn={() => { scale.set(withTiming(0.97, { duration: 90 })); }}
+          onPressOut={() => { scale.set(withSpring(1, { damping: 14, stiffness: 220 })); }}>
+          <Animated.View style={pressStyle}>{body}</Animated.View>
+        </Pressable>
+      ) : body}
+    </Animated.View>
   );
 }
 
@@ -219,7 +250,7 @@ export function Seg({ items, value, onChange, colors }: { items: { key: string; 
 export function Bar({ pct, color = C.acc, height = 7 }: { pct: number; color?: string; height?: number }) {
   return (
     <View style={{ height, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-      <View style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', borderRadius: 99, backgroundColor: color }} />
+      <View style={{ width: `${safePct(pct)}%`, height: '100%', borderRadius: 99, backgroundColor: color }} />
     </View>
   );
 }
@@ -260,36 +291,39 @@ function usePressScale(to = 0.94) {
   };
 }
 
-export function PrimaryButton({ title, onPress, icon, loading, disabled, variant = 'primary', outline, style, small }: {
-  title: string; onPress?: () => void; icon?: IconName; loading?: boolean; disabled?: boolean; variant?: 'primary' | 'ghost' | 'danger'; outline?: boolean; style?: StyleProp<ViewStyle>; small?: boolean;
+export function PrimaryButton({ title, onPress, icon, loading, disabled, variant = 'primary', outline, style, small, compact }: {
+  title: string; onPress?: () => void; icon?: IconName; loading?: boolean; disabled?: boolean; variant?: 'primary' | 'ghost' | 'danger'; outline?: boolean; style?: StyleProp<ViewStyle>; small?: boolean; compact?: boolean;
 }) {
   if (outline) variant = 'ghost';
   const press = usePressScale(0.97);
-  const h = small ? 42 : 56;
+  const h = compact ? 38 : small ? 42 : 56;
+  const radius = compact ? 12 : small ? 14 : 18;
+  const padX = compact ? 10 : 16;
   const content = (
     <>
       {loading ? <ActivityIndicator color={variant === 'primary' ? C.onAcc : '#fff'} /> : (
         <>
-          {icon ? <Ionicons name={icon} size={18} color={variant === 'primary' ? C.onAcc : '#fff'} style={{ marginRight: 8 }} /> : null}
-          <Text style={{ color: variant === 'primary' ? C.onAcc : '#fff', fontFamily: F.bold, fontSize: small ? 14 : 16 }}>{title}</Text>
+          {icon ? <Ionicons name={icon} size={compact ? 16 : 18} color={variant === 'primary' ? C.onAcc : '#fff'} style={{ marginRight: compact ? 5 : 8 }} /> : null}
+          <Text style={{ color: variant === 'primary' ? C.onAcc : '#fff', fontFamily: F.bold, fontSize: compact ? 13 : small ? 14 : 16 }} numberOfLines={1}>{title}</Text>
         </>
       )}
     </>
   );
+  const [outerStyle, innerStyle] = splitLayout(style);
   if (variant === 'ghost') {
     return (
-      <Pressable onPress={onPress} disabled={disabled || loading} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
-        <Animated.View style={[{ height: h, borderRadius: small ? 14 : 18, backgroundColor: C.s2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }, press.style, style]}>
+      <Pressable style={outerStyle} onPress={onPress} disabled={disabled || loading} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
+        <Animated.View style={[{ height: h, borderRadius: radius, paddingHorizontal: padX, backgroundColor: C.s2, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }, press.style, innerStyle]}>
           {content}
         </Animated.View>
       </Pressable>
     );
   }
   return (
-    <Pressable onPress={onPress} disabled={disabled || loading} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
-      <Animated.View style={[{ opacity: disabled ? 0.5 : 1 }, styles.btnShadow, press.style, style]}>
+    <Pressable style={outerStyle} onPress={onPress} disabled={disabled || loading} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
+      <Animated.View style={[{ opacity: disabled ? 0.5 : 1 }, styles.btnShadow, press.style, innerStyle]}>
         <LinearGradient colors={variant === 'danger' ? GRAD_DANGER : GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={{ height: h, borderRadius: small ? 14 : 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
+          style={{ height: h, borderRadius: radius, paddingHorizontal: padX, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}>
           {content}
         </LinearGradient>
       </Animated.View>
@@ -345,9 +379,13 @@ export function EmptyState({ icon, color = C.acc, title, sub, action, onAction }
 // ---------- sheets & dialogs ----------
 export function Sheet({ visible, onClose, title, children, footer }: { visible: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   const insets = useSafeAreaInsets();
+  const { height: winH } = useWindowDimensions();
+  // Reserve room for the handle, title row, footer, paddings and the status bar so the
+  // footer buttons never get pushed below the screen on shorter devices.
+  const bodyMax = Math.max(220, winH - insets.top - 270);
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <ModalWrap behavior="padding" style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(2,4,9,0.7)' }]} onPress={onClose} />
         <LinearGradient colors={['#121A2C', '#0B101C']} style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
           <View style={styles.handle} />
@@ -355,12 +393,12 @@ export function Sheet({ visible, onClose, title, children, footer }: { visible: 
             <Text style={[styles.h2, { fontSize: 20 }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.close}><Ionicons name="close" size={18} color={C.mute} /></TouchableOpacity>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: 560 }} contentContainerStyle={{ paddingBottom: 6 }}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" style={{ maxHeight: bodyMax }} contentContainerStyle={{ paddingBottom: 6 }}>
             {children}
           </ScrollView>
           {footer ? <View style={{ marginTop: 16 }}>{footer}</View> : null}
         </LinearGradient>
-      </KeyboardAvoidingView>
+      </ModalWrap>
     </Modal>
   );
 }
@@ -377,10 +415,10 @@ export function SheetButtons({ onCancel, onSave, saveLabel = 'Save', cancelLabel
 export function Dialog({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+      <ModalWrap behavior="padding" style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(2,4,9,0.74)' }]} onPress={onClose} />
         <LinearGradient colors={['#141D31', '#0C111E']} style={styles.dialog}>{children}</LinearGradient>
-      </KeyboardAvoidingView>
+      </ModalWrap>
     </Modal>
   );
 }
@@ -394,7 +432,7 @@ export function ConfirmDialog({ visible, title, message, confirmLabel = 'Delete'
         {message ? <Text style={[styles.sub, { marginTop: 8, textAlign: 'center', lineHeight: 21 }]}>{message}</Text> : null}
       </View>
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-        <PrimaryButton title="Cancel" variant="ghost" onPress={onCancel} small style={{ flex: 1, height: 50 }} />
+        <PrimaryButton title="Cancel" variant="ghost" onPress={onCancel} small style={{ flex: 1 }} />
         <PrimaryButton title={confirmLabel} variant="danger" onPress={onConfirm} small style={{ flex: 1 }} />
       </View>
     </Dialog>
@@ -405,7 +443,7 @@ export function ConfirmDialog({ visible, title, message, confirmLabel = 'Delete'
 export function Ring({ pct, size = 96, thick = 9, color = C.acc, children }: { pct: number; size?: number; thick?: number; color?: string; children?: React.ReactNode }) {
   const r = (size - thick) / 2;
   const circ = 2 * Math.PI * r;
-  const p = Math.max(0, Math.min(100, pct));
+  const p = safePct(pct);
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>

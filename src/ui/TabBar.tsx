@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, FadeInDown } from 'react-native-reanimated';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { C, F, GRAD } from './theme';
@@ -30,7 +31,9 @@ function TabItem({ icon, label, on, onPress }: { icon: string; label: string; on
   const lift = useSharedValue(on ? 1 : 0);
   useEffect(() => { lift.set(withSpring(on ? 1 : 0, { damping: 14, stiffness: 180 })); }, [on]);
   const pillStyle = useAnimatedStyle(() => ({
-    backgroundColor: `rgba(${ACC_R},${ACC_G},${ACC_B},${lift.value * 0.14})`,
+    // Spring overshoot can push lift.value slightly below 0 (e.g. -3.7e-7), and tiny values stringify
+    // in exponent notation ("1.4e-8") — both are invalid alphas, so clamp AND round to 3 decimals.
+    backgroundColor: `rgba(${ACC_R},${ACC_G},${ACC_B},${Math.round(Math.min(1, Math.max(0, lift.value)) * 140) / 1000})`,
     transform: [{ scale: 1 + lift.value * 0.08 }],
   }));
   const pressScale = useSharedValue(1);
@@ -60,17 +63,20 @@ function FabButton({ onPress }: { onPress: () => void }) {
       onPressIn={() => { scale.set(withTiming(0.88, { duration: 80 })); }}
       onPressOut={() => { scale.set(withSpring(1, { damping: 12, stiffness: 240 })); }}
       style={styles.fabWrap}>
-      <Animated.View entering={FadeInDown.duration(500).springify()} style={style}>
-        <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fab}>
-          <Ionicons name="add" size={30} color={C.onAcc} />
-        </LinearGradient>
+      <Animated.View entering={FadeInDown.duration(500).springify()}>
+        <Animated.View style={style}>
+          <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.fab}>
+            <Ionicons name="add" size={30} color={C.onAcc} />
+          </LinearGradient>
+        </Animated.View>
       </Animated.View>
     </Pressable>
   );
 }
 
-export default function TabBar({ state, navigation }: any) {
+export default function TabBar({ state }: any) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [addVisible, setAddVisible] = useState(false);
   const current = state.routes[state.index]?.name;
   if (HIDDEN.includes(current)) return null;
@@ -84,7 +90,7 @@ export default function TabBar({ state, navigation }: any) {
           {TABS.map((t) => {
             if (t.route === 'add') return <FabButton key="add" onPress={() => setAddVisible(true)} />;
             return (
-              <TabItem key={t.route} icon={t.icon} label={t.label} on={activeKey === t.route} onPress={() => navigation.navigate(t.route as never)} />
+              <TabItem key={t.route} icon={t.icon} label={t.label} on={activeKey === t.route} onPress={() => router.navigate((t.route === 'index' ? '/' : `/${t.route}`) as never)} />
             );
           })}
         </View>

@@ -158,27 +158,29 @@ export default function SavingsScreen() {
 
         <View style={{ gap: 10, marginTop: 12 }}>
           {rows.map((r) => (
-            <Card key={r.goal.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <Ring pct={r.progress} size={72} thick={7} color={r.isComplete ? C.amber : r.color}>
-                <Text style={styles.pct}>{r.progress.toFixed(0)}%</Text>
-              </Ring>
-              <View style={{ flex: 1, gap: 4 }}>
-                <View style={styles.rowSp}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{r.goal.name}</Text>
-                  {r.isComplete ? <Tag label="Complete" color={C.amber} /> : null}
+            <Card key={r.goal.id}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                <Ring pct={r.progress} size={72} thick={7} color={r.isComplete ? C.amber : r.color}>
+                  <Text style={styles.pct}>{r.progress.toFixed(0)}%</Text>
+                </Ring>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={styles.rowSp}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>{r.goal.name}</Text>
+                    {r.isComplete ? <Tag label="Complete" color={C.amber} /> : null}
+                  </View>
+                  <Text style={{ fontSize: 13 }}>
+                    <Text style={{ color: r.color, fontWeight: '700' }}>Rs {num(r.totalVal)}</Text>
+                    <Text style={{ color: C.dim }}> of {num(r.target)}</Text>
+                  </Text>
+                  <Text style={styles.goalSub}>
+                    {r.lentOut > 0 ? `Rs ${num(r.current)} saved · Rs ${num(r.lentOut)} lent` : r.isComplete ? 'Goal reached' : `Rs ${num(Math.max(0, r.target - r.totalVal))} to go`}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 13 }}>
-                  <Text style={{ color: r.color, fontWeight: '700' }}>Rs {num(r.totalVal)}</Text>
-                  <Text style={{ color: C.dim }}> of {num(r.target)}</Text>
-                </Text>
-                <Text style={styles.goalSub}>
-                  {r.lentOut > 0 ? `Rs ${num(r.current)} saved · Rs ${num(r.lentOut)} lent` : r.isComplete ? 'Goal reached' : `Rs ${num(Math.max(0, r.target - r.totalVal))} to go`}
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                  {!r.isComplete && <PrimaryButton title="Add" icon="add" small onPress={() => openContribute(r.goal)} style={{ height: 32, borderRadius: 10 }} />}
-                  <PrimaryButton title="Withdraw" variant="ghost" small onPress={() => openWithdraw(r.goal, r.current)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />
-                  {!r.isComplete && <PrimaryButton title="AI Forecast" icon="bulb-outline" variant="ghost" small onPress={() => openSimulate(r.goal)} style={{ height: 32, paddingHorizontal: 12, borderRadius: 10 }} />}
-                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+                {!r.isComplete && <PrimaryButton title="Add" icon="add" compact onPress={() => openContribute(r.goal)} style={{ flex: 1 }} />}
+                <PrimaryButton title="Withdraw" variant="ghost" compact onPress={() => openWithdraw(r.goal, r.current)} style={{ flex: 1.2 }} />
+                {!r.isComplete && <PrimaryButton title="Forecast" icon="bulb-outline" variant="ghost" compact onPress={() => openSimulate(r.goal)} style={{ flex: 1.2 }} />}
               </View>
             </Card>
           ))}

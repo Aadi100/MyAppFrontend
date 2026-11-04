@@ -6,6 +6,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../ui/TabBar';
+import AnimatedSplash from '../ui/AnimatedSplash';
 import { useStore } from '../store/useStore';
 import { C } from '../ui/theme';
 
@@ -14,12 +15,13 @@ export default function TabLayout() {
   const accessToken = useStore(state => state.accessToken);
   
   const [isLocked, setIsLocked] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const appState = useRef(AppState.currentState);
   const backgroundTime = useRef<number | null>(null);
 
   const handleUnlock = async () => {
     const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock Expense Manager',
+      promptMessage: 'Unlock Adion',
       fallbackLabel: 'Use Password',
     });
     if (authResult.success) {
@@ -76,31 +78,44 @@ export default function TabLayout() {
   return (
     <>
       <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#070A11' } }}>
-        <Tabs.Screen name="index" options={{ title: 'Dashboard' }} />
-        <Tabs.Screen name="transactions" options={{ title: 'Activity' }} />
-        <Tabs.Screen name="manage" options={{ title: 'Menu' }} />
-        <Tabs.Screen name="bank-comparison" options={{ title: 'Banks' }} />
-        <Tabs.Screen name="savings" options={{ href: null }} />
-        <Tabs.Screen name="payables" options={{ href: null }} />
-        <Tabs.Screen name="vault" options={{ href: null }} />
-        <Tabs.Screen name="payday" options={{ href: null }} />
-        <Tabs.Screen name="bank-summary" options={{ href: null }} />
-        <Tabs.Screen name="notes" options={{ href: null }} />
-        <Tabs.Screen name="reminders" options={{ href: null }} />
-        <Tabs.Screen name="todos" options={{ href: null }} />
-        <Tabs.Screen name="insights" options={{ href: null }} />
-        <Tabs.Screen name="login" options={{ href: null }} />
-        <Tabs.Screen name="signup" options={{ href: null }} />
-        <Tabs.Screen name="recover" options={{ href: null }} />
-        <Tabs.Screen name="reset-password" options={{ href: null }} />
-        <Tabs.Screen name="profile" options={{ href: null }} />
+        {/* Auth is declarative: signed-out users can only reach the auth screens and are
+            sent to /login; signed-in users can't reach them. This replaces the old
+            router.replace() redirects inside screen effects, which re-mounted the
+            Dashboard in a loop under expo-router 58 ("Maximum update depth exceeded"). */}
+        {/* No `href: null` on any screen: in expo-router 58 that marks a tab `hidden`, and a
+            focused hidden tab is force-redirected to the first visible one — which bounced
+            login <-> dashboard forever. The custom TabBar already decides what is shown. */}
+        <Tabs.Protected guard={!!accessToken} redirectTo="/login">
+          <Tabs.Screen name="index" options={{ title: 'Dashboard' }} />
+          <Tabs.Screen name="transactions" options={{ title: 'Activity' }} />
+          <Tabs.Screen name="manage" options={{ title: 'Menu' }} />
+          <Tabs.Screen name="bank-comparison" options={{ title: 'Banks' }} />
+          <Tabs.Screen name="savings" />
+          <Tabs.Screen name="payables" />
+          <Tabs.Screen name="vault" />
+          <Tabs.Screen name="payday" />
+          <Tabs.Screen name="bank-summary" />
+          <Tabs.Screen name="notes" />
+          <Tabs.Screen name="reminders" />
+          <Tabs.Screen name="todos" />
+          <Tabs.Screen name="insights" />
+          <Tabs.Screen name="profile" />
+        </Tabs.Protected>
+        <Tabs.Protected guard={!accessToken} redirectTo="/">
+          <Tabs.Screen name="login" />
+          <Tabs.Screen name="signup" />
+          <Tabs.Screen name="recover" />
+          <Tabs.Screen name="reset-password" />
+        </Tabs.Protected>
       </Tabs>
+
+      {!splashDone && <AnimatedSplash onDone={() => setSplashDone(true)} />}
 
       {isLocked && (
         <View style={styles.lockOverlay}>
           <Ionicons name="lock-closed" size={64} color={C.acc} />
           <Text style={styles.lockTitle}>App Locked</Text>
-          <Text style={styles.lockSub}>For your security, Expense Manager has been locked due to inactivity.</Text>
+          <Text style={styles.lockSub}>For your security, Adion has been locked due to inactivity.</Text>
           
           <TouchableOpacity style={styles.unlockBtn} onPress={handleUnlock}>
             <Ionicons name="finger-print-outline" size={24} color="#0D1321" />

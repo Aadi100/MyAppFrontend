@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Platform, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useStore } from '../store/useStore';
-import { Screen, Header, Label, Input, EmptyState, ConfirmDialog, PrimaryButton } from '../ui/kit';
+import { Screen, Header, Label, Input, EmptyState, ConfirmDialog, PrimaryButton, ModalWrap } from '../ui/kit';
 import { C, alpha, GRAD } from '../ui/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -136,7 +136,7 @@ export default function NotesScreen() {
 
       {/* EDIT NOTE */}
       <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)} statusBarTranslucent>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalContainer, { backgroundColor: bg, paddingTop: insets.top + 8 }]}>
+        <ModalWrap behavior="padding" style={[styles.modalContainer, { backgroundColor: bg, paddingTop: insets.top + 8 }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.roundBtn}>
               <Ionicons name="chevron-down" size={24} color={C.text} />
@@ -173,7 +173,7 @@ export default function NotesScreen() {
               );
             })}
           </View>
-        </KeyboardAvoidingView>
+        </ModalWrap>
 
         <ConfirmDialog visible={deleteAsk} title="Delete note?" message="This cannot be undone." onCancel={() => setDeleteAsk(false)} onConfirm={confirmDelete} />
       </Modal>

@@ -12,9 +12,9 @@ import android.view.autofill.AutofillId
 import android.view.View
 
 /**
- * Minimal Android Autofill Service for My Daily App.
+ * Minimal Android Autofill Service for Adion.
  *
- * This lets the OS list "My Daily App" under Settings > Autofill service, and it
+ * This lets the OS list "Adion" under Settings > Autofill service, and it
  * correctly detects username/password fields on other screens. It does not yet
  * fill in real saved credentials from the Vault - the Vault's passwords are
  * stored server-side and only decrypted inside the JS app via an authenticated

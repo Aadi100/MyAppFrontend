@@ -56,7 +56,12 @@ export const useStore = create((set, get) => ({
   
   syncAppNotifications: async () => {
     const state = get();
-    await syncAllNotifications(state.reminders, state.todos);
+    try {
+      await syncAllNotifications(state.reminders, state.todos);
+    } catch (e) {
+      // Scheduling local notifications is best-effort; never let it surface as an app error.
+      console.warn('Failed to sync notifications:', e?.message || e);
+    }
   },
 
   fetchData: async () => {
@@ -693,6 +698,23 @@ export const useStore = create((set, get) => ({
       Alert.alert('Error', e.message || 'Failed to save password.');
       return false;
     }
+  },
+
+  // Bulk import: inserts one entry at a time (no per-row alert/refetch), reports progress, refetches once.
+  importPasswordEntries: async (entries, onProgress) => {
+    let added = 0;
+    const failed = [];
+    for (let i = 0; i < entries.length; i++) {
+      try {
+        await apiFetch('/create-password-entry', { method: 'POST', body: JSON.stringify(entries[i]) });
+        added++;
+      } catch (e) {
+        failed.push({ service_name: entries[i].service_name, error: e?.message || 'Failed' });
+      }
+      if (onProgress) onProgress(i + 1, entries.length);
+    }
+    get().fetchPasswordEntries();
+    return { added, failed };
   },
 
   revealPasswordEntry: async (id) => {

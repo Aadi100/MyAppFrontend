@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useStore } from '../store/useStore';
-import { Screen, Card, Tag, Input, Sheet, SheetButtons, Field, GhostBtn, EmptyState, Label, ConfirmDialog } from '../ui/kit';
+import { Screen, Card, Tag, Input, Sheet, SheetButtons, Field, GhostBtn, EmptyState, Label, ConfirmDialog, PrimaryButton, Bar } from '../ui/kit';
+import { pickRows, rowsToEntries, ParsedImport } from '../utils/vaultImport';
 import { C, alpha } from '../ui/theme';
 
 type Form = { id: string | null; service_name: string; username: string; password: string; notes: string; backup_codes: string[] };
@@ -33,6 +34,14 @@ export default function VaultScreen() {
   const revealPasswordEntry = useStore((state) => state.revealPasswordEntry);
   const deletePasswordEntry = useStore((state) => state.deletePasswordEntry);
   const updatePasswordEntry = useStore((state) => state.updatePasswordEntry);
+  const importPasswordEntries = useStore((state) => state.importPasswordEntries);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importStage, setImportStage] = useState<'pick' | 'preview' | 'running' | 'done'>('pick');
+  const [importFile, setImportFile] = useState('');
+  const [parsed, setParsed] = useState<ParsedImport | null>(null);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [importResult, setImportResult] = useState<{ added: number; failed: { service_name: string; error: string }[] } | null>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, { password: string; backup_codes: string[] } | null>>({});
@@ -80,6 +89,32 @@ export default function VaultScreen() {
   const handleCopyPassword = async (id: string) => {
     const s = await getSecrets(id);
     if (s) await copy(s.password, 'Password');
+  };
+
+  const openImport = () => {
+    setImportStage('pick'); setParsed(null); setImportResult(null); setImportFile('');
+    setImportOpen(true);
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const picked = await pickRows();
+      if (!picked) return;
+      setImportFile(picked.fileName);
+      setParsed(rowsToEntries(picked.rows, passwordEntries));
+      setImportStage('preview');
+    } catch (e: any) {
+      Alert.alert('Could not read file', e?.message || 'Make sure it is a valid .csv or .xlsx file.');
+    }
+  };
+
+  const handleRunImport = async () => {
+    if (!parsed || parsed.entries.length === 0) return;
+    setImportStage('running');
+    setProgress({ done: 0, total: parsed.entries.length });
+    const result = await importPasswordEntries(parsed.entries, (done: number, total: number) => setProgress({ done, total }));
+    setImportResult(result);
+    setImportStage('done');
   };
 
   const openAdd = () => {
@@ -151,9 +186,14 @@ export default function VaultScreen() {
       <Screen>
         <View style={styles.rowSp}>
           <Text style={styles.h1}>Vault</Text>
-          <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-            <Ionicons name="add" size={24} color={C.onAcc} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={[styles.addBtn, { backgroundColor: alpha(C.acc, 0.14) }]} onPress={openImport}>
+              <Ionicons name="cloud-upload-outline" size={22} color={C.acc} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
+              <Ionicons name="add" size={24} color={C.onAcc} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {passwordEntries.length > 0 && (
@@ -221,6 +261,68 @@ export default function VaultScreen() {
           })}
         </View>
       </Screen>
+
+      <Sheet visible={importOpen} onClose={() => importStage !== 'running' && setImportOpen(false)} title="Import passwords"
+        footer={
+          importStage === 'preview' && parsed && parsed.entries.length > 0 ? (
+            <SheetButtons onCancel={() => setImportStage('pick')} onSave={handleRunImport} saveLabel={`Import ${parsed.entries.length}`} cancelLabel="Back" />
+          ) : importStage === 'done' ? (
+            <PrimaryButton title="Done" onPress={() => setImportOpen(false)} />
+          ) : importStage === 'pick' ? (
+            <PrimaryButton title="Choose CSV or Excel file" icon="document-outline" onPress={handlePickFile} />
+          ) : undefined
+        }>
+        {importStage === 'pick' && (
+          <View style={{ marginTop: 10, gap: 8 }}>
+            <Text style={styles.sub}>Pick a .csv or .xlsx file. The first row must be a header row with at least these columns:</Text>
+            {['service (or name / site) — required', 'password — required', 'username (or email)', 'notes', 'backup_codes — separated by ; or |'].map((t) => (
+              <Text key={t} style={{ color: C.text, fontSize: 13, lineHeight: 20 }}>• {t}</Text>
+            ))}
+            <Text style={[styles.sub, { marginTop: 4 }]}>Entries already in your vault (same service + username) are skipped.</Text>
+          </View>
+        )}
+        {importStage === 'preview' && parsed && (
+          <View style={{ marginTop: 10, gap: 8 }}>
+            <Text style={styles.sub} numberOfLines={1}>{importFile}</Text>
+            {parsed.missingColumns.length > 0 ? (
+              <Text style={{ color: C.rose, fontSize: 14 }}>Missing required column{parsed.missingColumns.length > 1 ? 's' : ''}: {parsed.missingColumns.join(', ')}. Check the header row.</Text>
+            ) : (
+              <>
+                <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>{parsed.entries.length} ready to import</Text>
+                {parsed.skipped > 0 && <Text style={styles.sub}>{parsed.skipped} skipped (missing service or password)</Text>}
+                {parsed.duplicates > 0 && <Text style={styles.sub}>{parsed.duplicates} skipped (already in vault or repeated)</Text>}
+                <View style={{ marginTop: 6, gap: 6 }}>
+                  {parsed.entries.slice(0, 6).map((e, i) => (
+                    <Text key={i} style={{ color: C.mute, fontSize: 13 }} numberOfLines={1}>• {e.service_name}{e.username ? ` — ${e.username}` : ''}</Text>
+                  ))}
+                  {parsed.entries.length > 6 && <Text style={styles.sub}>…and {parsed.entries.length - 6} more</Text>}
+                </View>
+              </>
+            )}
+            {(parsed.missingColumns.length > 0 || parsed.entries.length === 0) && (
+              <PrimaryButton title="Choose another file" variant="ghost" onPress={handlePickFile} style={{ marginTop: 10 }} />
+            )}
+          </View>
+        )}
+        {importStage === 'running' && (
+          <View style={{ marginTop: 16, gap: 12 }}>
+            <Text style={{ color: C.text, fontSize: 15, fontWeight: '700' }}>Importing {progress.done} / {progress.total}…</Text>
+            <Bar pct={progress.total ? (progress.done / progress.total) * 100 : 0} />
+            <Text style={styles.sub}>Keep the app open until this finishes.</Text>
+          </View>
+        )}
+        {importStage === 'done' && importResult && (
+          <View style={{ marginTop: 10, gap: 8 }}>
+            <Text style={{ color: C.acc, fontSize: 16, fontWeight: '800' }}>{importResult.added} added</Text>
+            {importResult.failed.length > 0 && (
+              <>
+                <Text style={{ color: C.rose, fontSize: 14, fontWeight: '700' }}>{importResult.failed.length} failed</Text>
+                {importResult.failed.slice(0, 8).map((f, i) => <Text key={i} style={styles.sub} numberOfLines={1}>• {f.service_name}: {f.error}</Text>)}
+              </>
+            )}
+          </View>
+        )}
+      </Sheet>
 
       <Sheet visible={modalVisible} onClose={() => setModalVisible(false)} title={form.id ? 'Edit password' : 'Add password'}
         footer={<SheetButtons onCancel={() => setModalVisible(false)} onSave={handleSave} saveLabel="Save password" />}>

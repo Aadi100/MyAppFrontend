@@ -19,20 +19,13 @@ export default function LoginScreen() {
   const login = useStore(state => state.login);
   const accessToken = useStore(state => state.accessToken);
 
-  // If already logged in, redirect to dashboard
-  useEffect(() => {
-    if (accessToken) {
-      router.replace('/');
-    }
-  }, [accessToken]);
-
   const handleBiometricAuth = async (savedEmail?: string, savedPassword?: string) => {
     const e = savedEmail || await SecureStore.getItemAsync('saved_email');
     const p = savedPassword || await SecureStore.getItemAsync('saved_password');
     if (!e || !p) return;
 
     const authResult = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Login to Expense Manager',
+      promptMessage: 'Login to Adion',
       fallbackLabel: 'Use Password',
     });
 
@@ -102,7 +95,7 @@ export default function LoginScreen() {
       <View style={{ alignItems: 'center', marginTop: 20 }}>
         <Logo />
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.sub}>Sign in to continue to Expense Manager</Text>
+        <Text style={styles.sub}>Sign in to continue to Adion</Text>
       </View>
 
       <View style={{ gap: 12, marginTop: 36 }}>

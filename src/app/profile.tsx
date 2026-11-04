@@ -98,7 +98,7 @@ export default function ProfileScreen() {
           <PrimaryButton title="Save changes" onPress={handleUpdate} loading={loading} style={{ marginTop: 24 }} />
         </View>
 
-        <Text style={styles.version}>Expense Manager · v1.0.0</Text>
+        <Text style={styles.version}>Adion · v1.0.0</Text>
       </Screen>
 
       <ConfirmDialog visible={logoutAsk} title="Log out?" message="You'll need to sign in again to see your data." confirmLabel="Log out"

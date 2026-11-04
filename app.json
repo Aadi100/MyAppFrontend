@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "My Daily App",
+    "name": "Adion",
     "slug": "myapp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,7 @@
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.aadii.myapp",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -16,12 +16,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#070A11",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "permissions": ["SCHEDULE_EXACT_ALARM"],
       "package": "com.aadii.myapp"
     },
     "web": {
@@ -35,7 +36,7 @@
         {
           "backgroundColor": "#070A11",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76,
+          "imageWidth": 160,
           "dark": {
             "backgroundColor": "#070A11"
           }
@@ -57,7 +58,8 @@
           ]
         }
       ],
-      "./plugins/withAutofill.js"
+      "./plugins/withAutofill.js",
+      "./plugins/withCmakeVersion.js"
     ],
     "experiments": {
       "typedRoutes": true,
