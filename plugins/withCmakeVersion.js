@@ -1,4 +1,4 @@
-const { withProjectBuildGradle, withGradleProperties } = require('@expo/config-plugins');
+const { withProjectBuildGradle, withAppBuildGradle, withGradleProperties } = require('@expo/config-plugins');
 
 // Fix 1: Windows's classic 260-char path limit breaks native CMake builds
 // for libraries with deep codegen output trees — hit by react-native-
@@ -65,12 +65,17 @@ subprojects { subproject ->
   // handler's) — it needs the same explicit -lc++_shared the individual
   // library modules above get, independently of them, since AGP links
   // :app's native code as its own separate target.
+  // Must hook the plugin being applied (not run eagerly): at this point :app has not been
+  // evaluated yet, so a bare subproject.android.* call silently never reached the real
+  // CMake configure (the cache showed no CMAKE_SHARED_LINKER_FLAGS).
   if (subproject.name == "app") {
-    subproject.android.defaultConfig.externalNativeBuild.cmake.arguments(
-      "-DCMAKE_ANDROID_STL_TYPE=c++_shared",
-      "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++ -lc++_shared",
-      "-DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++ -lc++_shared"
-    )
+    subproject.plugins.withId("com.android.application") {
+      subproject.android.defaultConfig.externalNativeBuild.cmake.arguments(
+        "-DCMAKE_ANDROID_STL_TYPE=c++_shared",
+        "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++ -lc++_shared",
+        "-DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++ -lc++_shared"
+      )
+    }
   }
 }
 `;
@@ -88,4 +93,20 @@ const withArm64Only = (config) =>
     return cfg;
   });
 
-module.exports = (config) => withArm64Only(withCmakeVersion(config));
+// :app's own native build (the combined "appmodules" target plus every autolinked Fabric codegen
+// library) needs the same explicit -lc++_shared as the library modules. Setting it from the root
+// build.gradle never reached :app's CMake configure (verified: CMakeCache had empty linker flags),
+// but declaring it inside :app's own defaultConfig does (verified: flags present in CMakeCache).
+const withAppCmakeArgs = (config) =>
+  withAppBuildGradle(config, (cfg) => {
+    if (cfg.modResults.contents.includes('forceAppCmakeArgs')) return cfg;
+    cfg.modResults.contents = cfg.modResults.contents.replace(
+      /(defaultConfig\s*\{)/,
+      `$1
+        // forceAppCmakeArgs: see plugins/withCmakeVersion.js
+        externalNativeBuild { cmake { arguments "-DCMAKE_ANDROID_STL_TYPE=c++_shared", "-DCMAKE_SHARED_LINKER_FLAGS=-stdlib=libc++ -lc++_shared", "-DCMAKE_EXE_LINKER_FLAGS=-stdlib=libc++ -lc++_shared" } }`,
+    );
+    return cfg;
+  });
+
+module.exports = (config) => withAppCmakeArgs(withArm64Only(withCmakeVersion(config)));

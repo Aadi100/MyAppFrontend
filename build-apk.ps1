@@ -32,6 +32,9 @@ Step "Mirroring project to $Build"
 New-Item -ItemType Directory -Force $Build | Out-Null
 Robo $Src $Build @('/XD', 'node_modules', '.git', 'android', '.expo', '.cxx', 'build', '.gradle', '/XF', 'adion.apk')
 Robo (Join-Path $Src 'node_modules') (Join-Path $Build 'node_modules') @()
+# OneDrive marks folders read-only; Gradle cannot delete read-only folders on Windows ("Unable to delete directory").
+attrib -R "$Build\node_modules\*" /S /D | Out-Null
+attrib -R "$Build\src\*" /S /D | Out-Null
 
 Push-Location $Build
 try {
@@ -42,7 +45,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'expo prebuild failed' }
 
   # Machine-local Gradle settings (forward slashes on purpose â€” backslashes get eaten by .properties).
-  $props = "sdk.dir=$($Sdk -replace '\','/')`ncmake.dir=$($Cmake -replace '\','/')`n"
+  $props = "sdk.dir=$($Sdk.Replace([string][char]92,'/'))`ncmake.dir=$($Cmake.Replace([string][char]92,'/'))`n"
   [IO.File]::WriteAllText((Join-Path $Build 'android\local.properties'), $props)
 
   if ($Clean) {
@@ -55,8 +58,15 @@ try {
   Step 'Building release APK (first build takes a long time)'
   Push-Location (Join-Path $Build 'android')
   try {
+    & .\gradlew.bat --stop | Out-Null   # release file locks held by daemons from earlier runs
     & .\gradlew.bat assembleRelease --no-daemon
-    if ($LASTEXITCODE -ne 0) { throw 'Gradle build failed â€” scroll up for the first "FAILED" / "error:" line.' }
+    if ($LASTEXITCODE -ne 0) {
+      # Windows sometimes holds a file lock right after the mirror step ("Unable to delete directory"); one retry clears it.
+      Write-Warning 'Gradle failed; retrying once...'
+      & .\gradlew.bat --stop | Out-Null
+      & .\gradlew.bat assembleRelease --no-daemon
+      if ($LASTEXITCODE -ne 0) { throw 'Gradle build failed - scroll up for the first FAILED / error: line.' }
+    }
   } finally { Pop-Location }
 
   $apk = Join-Path $Build 'android\app\build\outputs\apk\release\app-release.apk'
@@ -64,5 +74,6 @@ try {
   Copy-Item $apk $Out -Force
   Step "Done: $Out ($([math]::Round((Get-Item $Out).Length / 1MB, 1)) MB)"
 } finally { Pop-Location }
+
 
 
